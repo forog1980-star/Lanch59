@@ -18,7 +18,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Ensure GitHub Recovery Point tag (non-destructive)
+      - name: Ensure GitHub Recovery Point tag (non-blocking)
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -36,8 +36,13 @@ jobs:
               ref = "refs/tags/$tagName"
               sha = $targetSha
             } | ConvertTo-Json
-            Invoke-RestMethod -Method Post -Uri "https://api.github.com/repos/$repo/git/refs" -Headers $headers -Body $body -ContentType "application/json" | Out-Null
-            Write-Host "Created Recovery Point tag $tagName -> $targetSha"
+            try {
+              Invoke-RestMethod -Method Post -Uri "https://api.github.com/repos/$repo/git/refs" -Headers $headers -Body $body -ContentType "application/json" | Out-Null
+              Write-Host "Created Recovery Point tag $tagName -> $targetSha"
+            } catch {
+              $msg = $_.Exception.Message
+              Write-Host "::warning::Could not create Recovery Point tag '$tagName' via GITHUB_TOKEN ($msg). Tag was NOT created; immutable Recovery Point commit $targetSha remains safely preserved in Git history."
+            }
           } else {
             Write-Host "Recovery Point tag $tagName already exists on origin."
           }
