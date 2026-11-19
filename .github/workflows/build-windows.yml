@@ -18,6 +18,30 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Ensure GitHub Recovery Point tag (non-destructive)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tagName = "backup-before-release-packaging-20261119"
+          $targetSha = "925c0b4e2d740b81fb86a22f02a8fb4e82e7f297"
+          $existing = git ls-remote --tags origin "refs/tags/$tagName"
+          if ([string]::IsNullOrWhiteSpace($existing)) {
+            $repo = "${{ github.repository }}"
+            $headers = @{
+              Authorization = "Bearer $env:GH_TOKEN"
+              Accept = "application/vnd.github+json"
+            }
+            $body = @{
+              ref = "refs/tags/$tagName"
+              sha = $targetSha
+            } | ConvertTo-Json
+            Invoke-RestMethod -Method Post -Uri "https://api.github.com/repos/$repo/git/refs" -Headers $headers -Body $body -ContentType "application/json" | Out-Null
+            Write-Host "Created Recovery Point tag $tagName -> $targetSha"
+          } else {
+            Write-Host "Recovery Point tag $tagName already exists on origin."
+          }
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -184,55 +208,7 @@ jobs:
 
       - name: Prepare bilingual release notes
         if: steps.release_check.outputs.should_release == 'true'
-        shell: pwsh
-        run: |
-          node -e '
-            const fs = require("node:fs");
-            const version = JSON.parse(fs.readFileSync("desktop/package.json", "utf8")).version;
-            const sums = fs.readFileSync("release-out/SHA256SUMS.txt", "utf8").trim();
-            const bt = "`";
-            const fence = "```";
-            const body = [
-              `## LAUNCHER 59 v${version} — انتشار رسمی دسکتاپ ویندوز (x64)`,
-              "",
-              "**LAUNCHER 59** یک لانچر دایره‌ای شناور، سبک و شیشه‌ای برای ویندوز ۱۰ و ۱۱ است.",
-              "",
-              `### قابلیت‌های کلیدی نسخه ${version}`,
-              "- **موقعیت‌یابی پویا ۹گانه + جابه‌جایی آزاد (Drag) و پایداری چندمانیتوره** (مرکز، لبه‌ها و ۴ گوشه با تطبیق خودکار هنگام تغییر رزولوشن یا مانیتور)",
-              "- **کاهش شفافیت خودکار در بیکاری (Smart Idle Auto-Fade)** با بیدارشدن فوری هنگام اشاره ماوس",
-              "- **بازشدن تطبیقی حلقه برنامه‌ها (Adaptive Radial Menu)** برای دید کامل آیکون‌ها و برچسب‌ها در لبه‌ها و گوشه‌ها",
-              `- **پشتیبانی کامل از System Tray، اجرای مستقیم برنامه‌ها و ذخیره محلی تنظیمات** (${bt}%APPDATA%\\launcher-59\\${bt})`,
-              "- **بخش درباره برنامه (About)** در پنجره تنظیمات و ارتقای موتور به **Electron 45.3.4**",
-              "",
-              "### راهنمای نصب",
-              `- **نسخه نصبی (${bt}Launcher59-Setup-${version}-x64.exe${bt}):** نصب استاندارد برای کاربر فعلی بدون نیاز به دسترسی Administrator، همراه با میانبر منوی Start، دسکتاپ و Uninstaller رسمی.`,
-              `- **نسخه قابل‌حمل (${bt}Launcher59-Portable-${version}-x64.exe${bt}):** اجرای مستقیم بدون نصب؛ مناسب برای تست سریع یا اجرا از حافظه جانبی.`,
-              "- **توجه امنیتی (Unsigned Build):** این نسخه فاقد گواهی امضای دیجیتال (Code Signing Certificate) است؛ در صورت نمایش هشدار Windows SmartScreen، از گزینه **More info -> Run anyway** استفاده کنید و صحت فایل را با SHA256 زیر تطبیق دهید.",
-              "",
-              "---",
-              "",
-              `## LAUNCHER 59 v${version} — Windows x64 Desktop Release`,
-              "",
-              "Minimal floating glassmorphic radial launcher for Windows 10 & Windows 11.",
-              "",
-              "### Highlights",
-              "- 9-point quick positioning + free drag + multi-monitor work-area resilience",
-              "- Configurable Smart Idle Auto-Fade with instant hover/click wake",
-              "- Adaptive Radial Menu & edge-aware tooltips",
-              "- Local offline persistence, System Tray controls, Electron 45.3.4 runtime",
-              "",
-              "### Packages",
-              `- **Setup Installer (${bt}Launcher59-Setup-${version}-x64.exe${bt})**: Per-user Windows installer with Start Menu, Desktop shortcut, and uninstaller.`,
-              `- **Portable (${bt}Launcher59-Portable-${version}-x64.exe${bt})**: Single self-extracting executable requiring no installation.`,
-              `- **Note**: Unsigned build (no Authenticode certificate). Verify downloads against ${bt}SHA256SUMS.txt${bt}.`,
-              "",
-              "### SHA256 Checksums",
-              `${fence}text`,
-              sums,
-              fence,
-            ].join("\n");
-            fs.writeFileSync("release-out/RELEASE_NOTES.md", body + "\n", "utf8");
-          '
+        run: node desktop/build/generate-release-notes.mjs
 
       - name: Publish GitHub Release
         if: steps.release_check.outputs.should_release == 'true'

@@ -1,6 +1,8 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -24,13 +26,22 @@ async function loadResvg() {
   try {
     return await import('@resvg/resvg-js');
   } catch {
-    console.log('Installing @resvg/resvg-js temporarily to rasterize desktop/build/icon.svg...');
-    execFileSync(
-      process.platform === 'win32' ? 'npm.cmd' : 'npm',
-      ['install', '--no-save', '--no-audit', '--no-fund', '--legacy-peer-deps', '@resvg/resvg-js'],
-      { stdio: 'inherit', cwd: path.resolve(__dirname, '..', '..') }
-    );
-    return await import('@resvg/resvg-js');
+    const tmpDir = path.join(os.tmpdir(), 'launcher59-resvg-tool');
+    fs.mkdirSync(tmpDir, { recursive: true });
+    const tmpPkg = path.join(tmpDir, 'package.json');
+    if (!fs.existsSync(tmpPkg)) {
+      fs.writeFileSync(tmpPkg, '{"name":"launcher59-resvg-tool","private":true}\n', 'utf8');
+    }
+    const resvgMarker = path.join(tmpDir, 'node_modules', '@resvg', 'resvg-js', 'package.json');
+    if (!fs.existsSync(resvgMarker)) {
+      console.log(`Installing @resvg/resvg-js into isolated temp folder (${tmpDir}) to rasterize desktop/build/icon.svg...`);
+      execSync('npm install --no-audit --no-fund @resvg/resvg-js', {
+        stdio: 'inherit',
+        cwd: tmpDir,
+      });
+    }
+    const req = createRequire(tmpPkg);
+    return req('@resvg/resvg-js');
   }
 }
 
@@ -121,7 +132,7 @@ if (!fs.existsSync(pngPath)) {
 }
 
 if (!fs.existsSync(icoPath)) {
-  const sizes = [16, 32, 48, 64, 128, 256];
+  const sizes = [256, 128, 64, 48, 32, 24, 16];
   const icoImages = sizes.map((size) => {
     const rendered = new Resvg(svgData, {
       fitTo: { mode: 'width', value: size },

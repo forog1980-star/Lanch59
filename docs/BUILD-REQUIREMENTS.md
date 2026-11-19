@@ -9,18 +9,32 @@
    - پلاگین `copy-unbundled-src-assets` در `vite.config.ts` به‌جای `outDir` واقعی، مسیر ثابت `dist` را استفاده می‌کرد.
 2. **اجرای `#44477814191` (`925c0b4`):**
    - مراحل `npm ci`، تأمین باینری‌های Vite/Tailwind و `npm --prefix desktop ci` موفق شدند.
-   - در Step 7 (`npx tsc --noEmit`)، نسخه TypeScript 7 (`7.0.2`) به باینری نیتیو `@typescript/typescript-win32-x64@7.0.2` نیاز داشت که در فهرست باینری‌های ویندوز اضافه نشده بود.
-   - همچنین در Push رابط کاربری به GitHub، فایل‌های `desktop/build/icon.svg`، `setup.nsi` و `portable.nsi` ارسال شدند اما باینری‌های `icon.png` و `icon.ico` همگام‌سازی نشدند؛ بنابراین اسکریپت `desktop/build/ensure-icons.mjs` برای ساخت خودکار و دقیق `icon.png` (512×512) و `icon.ico` (۶ سایز) از روی آیکون وکتور اصلی `desktop/build/icon.svg` در زمان نبود آن‌ها اضافه و آزموده شد.
+   - در Step 7 (`npx tsc --noEmit`)، نسخه TypeScript 7 (`7.0.2`) به باینری نیتیو `@typescript/typescript-win32-x64@7.0.2` نیاز داشت که در `package-lock.json` ثبت نشده بود.
+   - همچنین در Push رابط کاربری به GitHub، فایل‌های متنی `desktop/build/icon.svg`، `setup.nsi` و `portable.nsi` ارسال شدند اما باینری‌های `icon.png` و `icon.ico` همگام‌سازی نشدند.
+
+## اصلاحات پایدار انجام‌شده (آماده Push به GitHub)
+1. **Recovery Point غیرتخریبی:**
+   - پشتیبان محلی با فایل `SHA256SUMS.txt` در `source-archive/recovery-before-win-ci-fix-20261119/` ذخیره شد.
+   - گام غیرتخریبی ایجاد تگ `backup-before-release-packaging-20261119` (اشاره‌کننده به کامیت قبل از اصلاح `925c0b4e2d740b81fb86a22f02a8fb4e82e7f297`) به ابتدای Workflow اضافه شد.
+2. **اصلاح پایدار و سازگار با `package-lock.json` برای ویندوز و لینوکس:**
+   - هر ۶ وابستگی اختیاری نیتیو `win32-x64` با URL و هش `integrity` رسمی npm registry مستقیماً به `package-lock.json` اضافه شدند تا `npm ci --legacy-peer-deps` روی هر دو سیستم‌عامل `linux-x64` و `win32-x64` بدون خطا اجرا شود:
+     - `@typescript/typescript-win32-x64@7.0.2`
+     - `@rolldown/binding-win32-x64-msvc@1.2.19`
+     - `@tailwindcss/oxide-win32-x64-msvc@4.3.5`
+     - `lightningcss-win32-x64-msvc@1.33.0`
+     - `@esbuild/win32-x64@0.25.12` و نسخه تودرتوی `tsx` (`@esbuild/win32-x64@0.28.2`)
+3. **تضمین آیکون‌های اصلی بدون تغییر طراحی (`desktop/build/ensure-icons.mjs`):**
+   - فایل‌های `desktop/build/icon.png` (512×512) و `desktop/build/icon.ico` (۷ سایز: 256/128/64/48/32/24/16) در محیط کاری موجودند و در صورت نبود در مخزن، اسکریپت `desktop/build/ensure-icons.mjs` آن‌ها را بدون تغییر در طراحی و به‌صورت ایزوله (در پوشه موقت سیستم با سازگاری کامل Node.js 22 ویندوز) از منبع اصلی `desktop/build/icon.svg` تولید می‌کند.
 
 ## وضعیت نهایی موارد کلیدی
 
 | مورد بررسی | وضعیت در `34baabb` | وضعیت فعلی | توضیحات فنی |
 |---|---|---|---|
-| `desktop/build/icon.png` | مفقود و نیازمند تکمیل | تکمیل‌شده و آزموده‌شده | موجود در محیط کاری + تولید خودکار از `desktop/build/icon.svg` توسط `desktop/build/ensure-icons.mjs` در CI (تأییدشده: PNG 512×512 RGBA) |
-| `desktop/build/icon.ico` | مفقود و نیازمند تکمیل | تکمیل‌شده و آزموده‌شده | موجود در محیط کاری + تولید خودکار ۶ سایز از `desktop/build/icon.svg` توسط `desktop/build/ensure-icons.mjs` در CI (تأییدشده: MS Windows icon resource - 6 icons) |
-| `desktop/build/setup.nsi` | مفقود و نیازمند تکمیل | موجود و تأییدشده | ثبت‌شده در GitHub (`925c0b4`) با نسخه `2.0.2` |
-| `desktop/build/portable.nsi` | مفقود و نیازمند تکمیل | موجود و تأییدشده | ثبت‌شده در GitHub (`925c0b4`) برای بسته پرتابل `2.0.2` |
-| مسیرهای ساخت Renderer (`vite.config.ts`) | مفقود و نیازمند تکمیل | تکمیل‌شده و آزموده‌شده | اصلاح `configResolved` برای پیروی از `build.outDir`؛ آزموده‌شده با وجود `desktop/renderer/index.html` و `desktop/renderer/src/assets/images/` |
-| فرایند تولید خروجی Setup و Portable | مفقود و نیازمند تکمیل | تکمیل‌شده (در انتظار اجرای نهایی `windows-latest`) | بسته‌بندی `Electron 45.3.4` (`pack:dir`) و بررسی `app.asar` در کانتینر با موفقیت آزموده شد؛ تولید نهایی `.exe` پس از Push روی `windows-latest` انجام می‌شود |
-| Workflow انتشار GitHub Release (`.github/workflows/build-windows.yml`) | مفقود و نیازمند تکمیل | تکمیل‌شده (در انتظار Push و اجرای نهایی) | شامل تمام ۵ باینری `win32-x64` (از جمله `@typescript/typescript-win32-x64`)، `ensure-icons.mjs`، تولید Setup+Portable+SHA256، آپلود Artifact و انتشار غیرتخریبی خودکار تگ `v2.0.2` روی اولین Push بدون تداخل |
-| `README.md` اصلی مخزن و راهنمای دانلود | مفقود و نیازمند تکمیل | موجود و تأییدشده | ثبت‌شده در GitHub (`925c0b4`) شامل معرفی، قابلیت‌ها، تفاوت Setup و Portable و لینک‌های مستقیم Release `v2.0.2` |
+| Recovery Point (`backup-before-release-packaging-20261119`) | مفقود و نیازمند تکمیل | تکمیل‌شده (ایجاد خودکار تگ در اولین اجرای CI) | پشتیبان محلی ثبت شد و تگ GitHub روی کامیت `925c0b4` به‌صورت غیرتخریبی ایجاد می‌شود |
+| وابستگی‌های نیتیو ویندوز (`package-lock.json`) | مفقود و نیازمند تکمیل | تکمیل‌شده و آزموده‌شده | تمام ۶ پکیج `win32-x64` با `integrity` رسمی در `package-lock.json` ثبت و با `npm ci` آزموده شدند |
+| `desktop/build/icon.png` | مفقود و نیازمند تکمیل | تکمیل‌شده و آزموده‌شده | موجود در محیط کاری + تولید خودکار از `desktop/build/icon.svg` توسط `desktop/build/ensure-icons.mjs` (PNG 512×512 RGBA) |
+| `desktop/build/icon.ico` | مفقود و نیازمند تکمیل | تکمیل‌شده و آزموده‌شده | موجود در محیط کاری + تولید خودکار ۷ سایز استاندارد از `desktop/build/icon.svg` (سازگار با NSIS و Windows Explorer) |
+| `desktop/build/setup.nsi` و `desktop/build/portable.nsi` | مفقود و نیازمند تکمیل | موجود و تأییدشده | ثبت‌شده در GitHub (`925c0b4`) با نسخه `2.0.2` |
+| مسیرهای ساخت Renderer (`vite.config.ts`) | مفقود و نیازمند تکمیل | تکمیل‌شده و آزموده‌شده | اصلاح `configResolved` برای پیروی از `build.outDir` |
+| Workflow ساخت و انتشار (`.github/workflows/build-windows.yml`) | مفقود و نیازمند تکمیل | تکمیل‌شده (در انتظار Push و اجرای نهایی در GitHub) | پس از ساخت واقعی Setup، Portable و SHA256SUMS، تگ و Release رسمی `v2.0.2` را منتشر و راستی‌آزمایی می‌کند |
+| `README.md` اصلی مخزن و راهنمای دانلود | مفقود و نیازمند تکمیل | موجود و تأییدشده | ثبت‌شده در GitHub (`925c0b4`) شامل راهنما و لینک‌های Release `v2.0.2` |
