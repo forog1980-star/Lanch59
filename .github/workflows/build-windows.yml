@@ -26,11 +26,12 @@ jobs:
       - name: Install root dependencies (npm ci)
         run: npm ci --legacy-peer-deps
 
-      - name: Ensure Windows x64 native optional bindings for Vite/Tailwind
+      - name: Ensure Windows x64 native optional bindings (TypeScript/Vite/Tailwind)
         shell: pwsh
         run: |
           $missing = @()
           $checks = @(
+            @{ pkg = 'typescript'; binding = '@typescript/typescript-win32-x64' },
             @{ pkg = 'rolldown'; binding = '@rolldown/binding-win32-x64-msvc' },
             @{ pkg = '@tailwindcss/oxide'; binding = '@tailwindcss/oxide-win32-x64-msvc' },
             @{ pkg = 'lightningcss'; binding = 'lightningcss-win32-x64-msvc' },
@@ -56,6 +57,9 @@ jobs:
 
       - name: Install desktop dependencies (Electron)
         run: npm --prefix desktop ci --legacy-peer-deps
+
+      - name: Ensure authentic LAUNCHER 59 icons (icon.png and icon.ico)
+        run: node desktop/build/ensure-icons.mjs
 
       - name: TypeScript & Electron syntax checks
         shell: pwsh
@@ -156,8 +160,30 @@ jobs:
             release-out/*.exe
             release-out/SHA256SUMS.txt
 
+      - name: Check whether version Release needs publishing (non-destructive)
+        id: release_check
+        shell: pwsh
+        run: |
+          $version = (Get-Content desktop/package.json | ConvertFrom-Json).version
+          $targetTag = "v$version"
+          $ref = "${{ github.ref }}"
+          $existing = git ls-remote --tags origin "refs/tags/$targetTag"
+          if ($ref.StartsWith("refs/tags/v")) {
+            $tagName = "${{ github.ref_name }}"
+            "should_release=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            "release_tag=$tagName" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          } elseif ([string]::IsNullOrWhiteSpace($existing)) {
+            Write-Host "Tag $targetTag does not exist yet on origin; will publish new GitHub Release $targetTag."
+            "should_release=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            "release_tag=$targetTag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          } else {
+            Write-Host "Tag $targetTag already exists on origin; skipping Release publish to preserve existing release."
+            "should_release=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            "release_tag=$targetTag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          }
+
       - name: Prepare bilingual release notes
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: steps.release_check.outputs.should_release == 'true'
         shell: pwsh
         run: |
           node -e '
@@ -208,14 +234,33 @@ jobs:
             fs.writeFileSync("release-out/RELEASE_NOTES.md", body + "\n", "utf8");
           '
 
-      - name: Publish GitHub Release on version tag
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Publish GitHub Release
+        if: steps.release_check.outputs.should_release == 'true'
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: LAUNCHER 59 ${{ github.ref_name }}
+          tag_name: ${{ steps.release_check.outputs.release_tag }}
+          target_commitish: ${{ github.sha }}
+          name: LAUNCHER 59 ${{ steps.release_check.outputs.release_tag }}
           body_path: release-out/RELEASE_NOTES.md
           files: |
             release-out/*.exe
             release-out/SHA256SUMS.txt
+
+      - name: Verify published GitHub Release assets
+        if: steps.release_check.outputs.should_release == 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "${{ steps.release_check.outputs.release_tag }}"
+          $repo = "${{ github.repository }}"
+          $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = "application/vnd.github+json" }
+          $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/tags/$tag" -Headers $headers
+          Write-Host "Release verified:" $rel.html_url
+          foreach ($a in $rel.assets) {
+            Write-Host "  Asset:" $a.name "|" $a.size "bytes |" $a.browser_download_url
+            if ($a.size -le 0) { throw "Zero-byte asset: $($a.name)" }
+          }
+          if ($rel.assets.Count -lt 3) { throw "Expected at least 3 release assets (Setup, Portable, SHA256SUMS.txt)" }
