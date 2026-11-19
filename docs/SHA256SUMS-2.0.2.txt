@@ -1,0 +1,2 @@
+e5eb3451f94d09b4f497e7f877b33d5a495c1b8c780d4eccca75319fa2c939a1  Setup/Launcher59-Setup-2.0.2-x64.exe
+fc00722601b27d6e3b6e5aec92703d1545eec6af773a52857f10a88f8c72d6db  Portable/Launcher59-Portable-2.0.2-x64.exe

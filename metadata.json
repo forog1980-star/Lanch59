@@ -1,0 +1,6 @@
+{
+  "name": "LAUNCHER 59",
+  "description": "داشبورد اختصاصی و هوشمند دسکتاپ ویندوز ۱۱ با طراحی Glassmorphism، هاله نوری مرکزی و مدیریت میانبرهای محلی",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

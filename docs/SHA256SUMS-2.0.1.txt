@@ -1,0 +1,5 @@
+acd3a4dd4ca67a11a8b2341fb61ff7f21ba123a9b6708892b2bf4fd9971f7387  Launcher-59-Release/v2.0.1/Setup/Launcher59-Setup-2.0.1-x64.exe
+1a6476177a28df583c4a257821bd75ab966d3ba2aa6b148885cccfdb6ce7c2b2  Launcher-59-Release/v2.0.1/Portable/Launcher59-Portable-2.0.1-x64.exe
+a52d0ba7b2a739469772402680b4bd78cb01719c99b4ba8f3be2ce150e555d72  Launcher-59-Release/Assets/icon.ico
+013de612f23248442f5f22272e816d6686ae08166e302d13f3a9bbbb3e615ed0  Launcher-59-Release/Assets/icon.png
+f2331e25bc73ddcf4c68cb5e38dedcad720633234c91e6d01731fd396a8c88e1  Launcher-59-Release/Assets/icon.svg

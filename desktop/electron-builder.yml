@@ -1,0 +1,18 @@
+appId: com.launcher59.desktop
+productName: LAUNCHER 59
+copyright: Copyright © 2026 LAUNCHER 59
+directories:
+  output: release-dist
+  buildResources: build
+files:
+  - electron/**/*
+  - renderer/**/*
+  - build/icon.png
+  - package.json
+asar: true
+win:
+  target:
+    - target: dir
+      arch:
+        - x64
+  signAndEditExecutable: false

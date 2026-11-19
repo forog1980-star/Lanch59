@@ -1,0 +1,17 @@
+node_modules/
+desktop/node_modules/
+build/
+dist/
+coverage/
+desktop/release-dist/
+desktop/renderer/
+Launcher-59-Release/
+Recovery-Points/
+release-out/
+*.exe
+*.7z
+*.asar
+.DS_Store
+*.log
+.env*
+!.env.example
