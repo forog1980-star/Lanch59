@@ -6,6 +6,11 @@ contextBridge.exposeInMainWorld('launcher59Desktop', {
   getPlacementContext: () => ipcRenderer.invoke('desktop:getPlacementContext'),
   launchTarget: (payload) => ipcRenderer.invoke('desktop:launchTarget', payload),
   pickExecutable: () => ipcRenderer.invoke('desktop:pickExecutable'),
+  extractAppIcons: (filePath) => ipcRenderer.invoke('desktop:extractAppIcons', filePath),
+  pickIconImage: () => ipcRenderer.invoke('desktop:pickIconImage'),
+  saveAppIcon: (appId, dataUrl, variant) =>
+    ipcRenderer.invoke('desktop:saveAppIcon', appId, dataUrl, variant),
+  deleteAppIcon: (appId) => ipcRenderer.invoke('desktop:deleteAppIcon', appId),
   getAutoStart: () => ipcRenderer.invoke('desktop:getAutoStart'),
   setAutoStart: (enabled) => ipcRenderer.invoke('desktop:setAutoStart', enabled),
   setAlwaysOnTop: (enabled) => ipcRenderer.invoke('desktop:setAlwaysOnTop', enabled),

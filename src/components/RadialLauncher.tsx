@@ -1,9 +1,19 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ChevronLeft, ChevronRight, Settings } from 'lucide-react';
 import { useIdleFade } from '../hooks/useIdleFade';
-import { AppShortcut, GlowTheme, LauncherSettings } from '../types/launcher';
+import { AppShortcut, LauncherSettings } from '../types/launcher';
+import {
+  computeOrbMetrics,
+  computeVisualStyles,
+  hexToRgba,
+  resolveAppearance,
+} from '../utils/appearanceConfig';
 import { toDisplayDigits } from '../utils/formatters';
+import {
+  IconLibraryMap,
+  resolveBrandIconKeyForShortcut,
+} from '../utils/iconLibrary';
 import {
   AdaptiveRadialLayout,
   clampWebOrbOffset,
@@ -14,6 +24,7 @@ import { AppIcon } from './icons/AppIcon';
 interface RadialLauncherProps {
   shortcuts: AppShortcut[];
   settings: LauncherSettings;
+  iconLibrary: IconLibraryMap;
   isOpen: boolean;
   settingsOpen: boolean;
   isDesktop: boolean;
@@ -30,44 +41,10 @@ interface RadialLauncherProps {
 
 const ICONS_PER_PAGE = 8;
 
-const GLOW_PALETTES: Record<
-  GlowTheme,
-  {
-    primary: string;
-    secondary: string;
-    ringStroke: string;
-    border: string;
-  }
-> = {
-  azure: {
-    primary: 'rgba(56, 169, 255, 0.58)',
-    secondary: 'rgba(0, 120, 212, 0.45)',
-    ringStroke: 'rgba(101, 213, 255, 0.48)',
-    border: 'rgba(101, 213, 255, 0.52)',
-  },
-  cyan: {
-    primary: 'rgba(34, 211, 238, 0.62)',
-    secondary: 'rgba(6, 182, 212, 0.46)',
-    ringStroke: 'rgba(103, 232, 249, 0.56)',
-    border: 'rgba(103, 232, 249, 0.58)',
-  },
-  indigo: {
-    primary: 'rgba(129, 140, 248, 0.58)',
-    secondary: 'rgba(79, 70, 229, 0.45)',
-    ringStroke: 'rgba(165, 180, 252, 0.52)',
-    border: 'rgba(165, 180, 252, 0.52)',
-  },
-};
-
-const INTENSITY_OPACITY: Record<LauncherSettings['haloIntensity'], number> = {
-  subtle: 0.42,
-  balanced: 0.72,
-  radiant: 1,
-};
-
 export const RadialLauncher: React.FC<RadialLauncherProps> = ({
   shortcuts,
   settings,
+  iconLibrary,
   isOpen,
   settingsOpen,
   isDesktop,
@@ -81,10 +58,21 @@ export const RadialLauncher: React.FC<RadialLauncherProps> = ({
   onCommitWebOrb,
   onCommitDesktopDrag,
 }) => {
+  const uid = useId().replace(/:/g, '');
   const [page, setPage] = useState(0);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isHoveredOrb, setIsHoveredOrb] = useState(false);
+
+  const appearance = useMemo(() => resolveAppearance(settings), [settings]);
+  const orbMetrics = useMemo(
+    () => computeOrbMetrics(appearance, isOpen),
+    [appearance, isOpen]
+  );
+  const visuals = useMemo(
+    () => computeVisualStyles(appearance, settings.haloIntensity, isOpen),
+    [appearance, settings.haloIntensity, isOpen]
+  );
 
   const { isIdle, effectiveOpacity, wake } = useIdleFade({
     enabled: settings.autoFadeEnabled,
@@ -114,9 +102,6 @@ export const RadialLauncher: React.FC<RadialLauncherProps> = ({
     startOffsetY: 0,
     latestOffset: orbOffset,
   });
-
-  const palette = GLOW_PALETTES[settings.glowTheme];
-  const intensity = INTENSITY_OPACITY[settings.haloIntensity];
 
   const totalPages = Math.max(1, Math.ceil(shortcuts.length / ICONS_PER_PAGE));
 
@@ -218,12 +203,27 @@ export const RadialLauncher: React.FC<RadialLauncherProps> = ({
 
   const transitionSpring = settings.reduceMotion
     ? { duration: 0.01 }
-    : { type: 'spring' as const, stiffness: 310, damping: 26, mass: 0.8 };
+    : { type: 'spring' as const, stiffness: 320, damping: 25, mass: 0.78 };
 
-  const stagePx = isOpen ? adaptiveLayout.stageSize : 164;
+  const stagePx = isOpen ? adaptiveLayout.stageSize : orbMetrics.closedStagePx;
   const webShiftX = orbOffset.x + (isOpen ? adaptiveLayout.openShiftX : 0);
   const webShiftY = orbOffset.y + (isOpen ? adaptiveLayout.openShiftY : 0);
   const opacityDuration = settings.reduceMotion ? 0 : isIdle ? 520 : 220;
+  const combinedOpacity = isOpen
+    ? appearance.globalOpacity
+    : Math.max(0.12, effectiveOpacity * appearance.globalOpacity);
+
+  // Strictly contain soft ambient glow well inside stagePx so zero edge clipping or square shadow can ever occur
+  const closedAuraDiameter = Math.min(stagePx - 28, Math.round(orbMetrics.closedDiameter + 44));
+  const openAuraDiameter = Math.min(stagePx - 16, Math.round(adaptiveLayout.effectiveRadius * 2 + 54));
+  const auraDiameter = isOpen ? openAuraDiameter : closedAuraDiameter;
+
+  // Seamless SVG orbital ring sizing
+  const outerRingDiameter = adaptiveLayout.effectiveRadius * 2 + 16;
+  const orbRingDiameter = orbMetrics.activeDiameter + Math.max(8, Math.round(orbMetrics.activeDiameter * 0.18));
+  const compactOrb = orbMetrics.activeDiameter <= 56;
+  const gearSizePx = compactOrb ? 22 : 28;
+  const gearOffset = compactOrb ? -7 : -3;
 
   return (
     <div
@@ -231,7 +231,7 @@ export const RadialLauncher: React.FC<RadialLauncherProps> = ({
       style={{
         width: `${stagePx}px`,
         height: `${stagePx}px`,
-        opacity: isOpen ? 1 : effectiveOpacity,
+        opacity: combinedOpacity,
         transform: isDesktop
           ? undefined
           : `translate3d(${webShiftX}px, ${webShiftY}px, 0)`,
@@ -249,66 +249,90 @@ export const RadialLauncher: React.FC<RadialLauncherProps> = ({
       onWheel={handleWheelRing}
       onClick={(e) => e.stopPropagation()}
     >
-      {/* Ambient Radial Aura Behind Closed Orb / Open Ring */}
+      {/* Calibrated Ambient Radial Aura — Fades to 0% well inside window edge (Zero Square Box Clip) */}
       <div
         aria-hidden="true"
         className={`pointer-events-none absolute rounded-full transition-all duration-300 ${
           settings.reduceMotion ? '' : 'animate-orb-breathe'
         }`}
         style={{
-          width: isOpen ? `${adaptiveLayout.effectiveRadius * 2 + 102}px` : '168px',
-          height: isOpen ? `${adaptiveLayout.effectiveRadius * 2 + 102}px` : '168px',
-          opacity: intensity,
-          background: `radial-gradient(circle, ${palette.primary} 0%, ${palette.secondary} 36%, transparent 72%)`,
-          filter: 'blur(20px)',
+          width: `${auraDiameter}px`,
+          height: `${auraDiameter}px`,
+          background: visuals.auraBackground,
+          filter: `blur(${Math.min(18, Math.round(orbMetrics.activeDiameter * 0.28 + 6))}px)`,
         }}
       />
 
-      {/* Luminous Expanding Orbital Ring */}
+      {/* Seamless 360° SVG Luminous Orbital Ring (Zero Cut / Zero Seam Artifact) */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
             key="radial-orbit-ring"
-            initial={{ opacity: 0, scale: 0.56 }}
+            initial={{ opacity: 0, scale: 0.54 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.56 }}
+            exit={{ opacity: 0, scale: 0.54 }}
             transition={transitionSpring}
             className="pointer-events-none absolute inset-0 flex items-center justify-center"
           >
-            {/* Outer Luminous Halo Ring */}
-            <div
-              className={`absolute rounded-full ${
-                settings.reduceMotion ? '' : 'animate-ring-slow'
-              }`}
-              style={{
-                width: `${adaptiveLayout.effectiveRadius * 2 + 12}px`,
-                height: `${adaptiveLayout.effectiveRadius * 2 + 12}px`,
-                border: `1.5px solid ${palette.ringStroke}`,
-                boxShadow: `0 0 36px ${palette.secondary}, inset 0 0 28px ${palette.secondary}`,
-                background: `radial-gradient(circle, transparent 58%, ${palette.secondary.replace(
-                  /[\d.]+\)$/,
-                  '0.12)'
-                )} 72%, transparent 76%)`,
-              }}
-            />
-
-            {/* Secondary Dashed Precision Accent Ring */}
-            <div
-              className={`absolute rounded-full ${
-                settings.reduceMotion ? '' : 'animate-ring-reverse'
-              }`}
-              style={{
-                width: `${adaptiveLayout.effectiveRadius * 2 - 22}px`,
-                height: `${adaptiveLayout.effectiveRadius * 2 - 22}px`,
-                border: `1px dashed ${palette.ringStroke}`,
-                opacity: 0.45,
-              }}
-            />
+            <svg
+              width={outerRingDiameter + 18}
+              height={outerRingDiameter + 18}
+              viewBox="0 0 240 240"
+              className={`absolute overflow-visible ${settings.reduceMotion ? '' : 'animate-ring-slow'}`}
+              aria-hidden="true"
+            >
+              <defs>
+                {/* Periodic smooth gradient (start == end) guarantees zero visible seam during 360° rotation */}
+                <linearGradient id={`orbitGrad-${uid}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor={visuals.ringPrimaryStop} stopOpacity="0.95" />
+                  <stop offset="33%" stopColor={visuals.ringAccentStop} stopOpacity="0.55" />
+                  <stop offset="66%" stopColor={visuals.ringPrimaryStop} stopOpacity="0.92" />
+                  <stop offset="100%" stopColor={visuals.ringAccentStop} stopOpacity="0.55" />
+                </linearGradient>
+                <filter id={`orbitGlow-${uid}`} x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="2.4" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+              {/* Soft outer halo track */}
+              <circle
+                cx="120"
+                cy="120"
+                r="108"
+                fill="none"
+                stroke={hexToRgba(appearance.ringColor, 0.22)}
+                strokeWidth="4.5"
+              />
+              {/* Seamless primary luminous ring */}
+              <circle
+                cx="120"
+                cy="120"
+                r="108"
+                fill="none"
+                stroke={`url(#orbitGrad-${uid})`}
+                strokeWidth="1.8"
+                filter={`url(#orbitGlow-${uid})`}
+              />
+              {/* Precision inner hair-ring */}
+              <circle
+                cx="120"
+                cy="120"
+                r="92"
+                fill="none"
+                stroke={hexToRgba(appearance.ringColor, 0.28)}
+                strokeWidth="0.9"
+                strokeDasharray="3 6"
+                strokeLinecap="round"
+              />
+            </svg>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Software Icon Nodes Placed Geometrically Around the Ring */}
+      {/* Software Icon Nodes Placed Geometrically Around the Ring (Full-Size & Independent of Compact Orb) */}
       <AnimatePresence>
         {isOpen &&
           pageShortcuts.map((shortcut, index) => {
@@ -329,12 +353,17 @@ export const RadialLauncher: React.FC<RadialLauncherProps> = ({
                     ? 'left-full ml-2 top-1/2 -translate-y-1/2'
                     : 'bottom-full mb-2';
 
+            const libEntry = iconLibrary[shortcut.id];
+            const activeIconDataUrl = libEntry?.activeDataUrl || shortcut.customIconDataUrl;
+            const brandKey =
+              libEntry?.brandIconKey || resolveBrandIconKeyForShortcut(shortcut);
+
             return (
               <motion.div
                 key={`${page}-${shortcut.id}`}
-                initial={{ opacity: 0, x: 0, y: 0, scale: 0.35 }}
+                initial={{ opacity: 0, x: 0, y: 0, scale: 0.32 }}
                 animate={{ opacity: 1, x: tx, y: ty, scale: 1 }}
-                exit={{ opacity: 0, x: 0, y: 0, scale: 0.35 }}
+                exit={{ opacity: 0, x: 0, y: 0, scale: 0.32 }}
                 transition={
                   settings.reduceMotion
                     ? { duration: 0.01 }
@@ -342,7 +371,7 @@ export const RadialLauncher: React.FC<RadialLauncherProps> = ({
                         type: 'spring',
                         stiffness: 340,
                         damping: 24,
-                        delay: index * 0.025,
+                        delay: index * 0.022,
                       }
                 }
                 className="absolute z-20 flex items-center justify-center"
@@ -363,9 +392,26 @@ export const RadialLauncher: React.FC<RadialLauncherProps> = ({
                   onFocus={() => setHoveredId(shortcut.id)}
                   onBlur={() => setHoveredId((prev) => (prev === shortcut.id ? null : prev))}
                   aria-label={shortcut.name}
-                  className="acrylic-node w-full h-full rounded-full flex items-center justify-center text-[#F5FAFF] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#65D5FF]"
+                  className="acrylic-node-v2 w-full h-full flex items-center justify-center text-[#F5FAFF] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#76E4FF]"
+                  style={{
+                    ...visuals.nodeStyle,
+                    borderColor: isHovered ? visuals.ringPrimaryStop : undefined,
+                    boxShadow: isHovered
+                      ? `0 12px 28px -4px ${hexToRgba(appearance.primaryColor, 0.6)}, 0 0 20px ${hexToRgba(appearance.ringColor, 0.5)}, inset 0 1px 1px rgba(255, 255, 255, 0.55)`
+                      : visuals.nodeStyle.boxShadow,
+                  }}
                 >
-                  <AppIcon iconKey={shortcut.iconKey} className={adaptiveLayout.iconClass} />
+                  <AppIcon
+                    iconKey={shortcut.iconKey}
+                    customIconDataUrl={activeIconDataUrl}
+                    brandIconKey={brandKey}
+                    appName={shortcut.englishName || shortcut.name}
+                    className="shrink-0"
+                    style={{
+                      width: `${adaptiveLayout.iconSizePx}px`,
+                      height: `${adaptiveLayout.iconSizePx}px`,
+                    }}
+                  />
                 </button>
 
                 {/* Minimal Hover Tooltip — Positioned Inward Away From Screen Edges */}
@@ -387,8 +433,44 @@ export const RadialLauncher: React.FC<RadialLauncherProps> = ({
           })}
       </AnimatePresence>
 
-      {/* Central Floating Glassmorphic 59 Orb */}
+      {/* Central Floating Fluent 3D Glassmorphic 59 Orb */}
       <div className="relative z-30 group flex items-center justify-center">
+        {/* Seamless Continuous 360° SVG Luminous Halo Rim Around the Orb */}
+        <svg
+          width={orbRingDiameter}
+          height={orbRingDiameter}
+          viewBox="0 0 100 100"
+          aria-hidden="true"
+          className={`pointer-events-none absolute overflow-visible ${
+            settings.reduceMotion ? '' : 'animate-ring-slow'
+          }`}
+          style={{
+            transition: settings.reduceMotion
+              ? 'none'
+              : 'width 240ms cubic-bezier(0.16, 1, 0.3, 1), height 240ms cubic-bezier(0.16, 1, 0.3, 1)',
+          }}
+        >
+          <defs>
+            <linearGradient id={`orbRim-${uid}`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.92" />
+              <stop offset="28%" stopColor={visuals.ringPrimaryStop} stopOpacity="0.95" />
+              <stop offset="64%" stopColor={visuals.ringAccentStop} stopOpacity="0.72" />
+              <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0.92" />
+            </linearGradient>
+          </defs>
+          <circle
+            cx="50"
+            cy="50"
+            r="46"
+            fill="none"
+            stroke={`url(#orbRim-${uid})`}
+            strokeWidth={orbMetrics.activeDiameter <= 48 ? '2.4' : '1.9'}
+            style={{
+              filter: `drop-shadow(0 0 4px ${visuals.ringGlowColor})`,
+            }}
+          />
+        </svg>
+
         <button
           type="button"
           onPointerDown={handleOrbPointerDown}
@@ -404,34 +486,70 @@ export const RadialLauncher: React.FC<RadialLauncherProps> = ({
           aria-label={
             isOpen ? 'بستن حلقه برنامه‌های LAUNCHER 59' : 'باز کردن لانچر دایره‌ای ۵۹'
           }
-          className={`acrylic-orb relative w-[116px] h-[116px] rounded-full flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-[#65D5FF] transition-transform duration-200 ${
+          className={`relative rounded-full overflow-hidden flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-[#76E4FF] ${
             isDragging
-              ? 'cursor-grabbing scale-[0.97]'
-              : 'cursor-pointer hover:scale-[1.03] active:scale-[0.97]'
+              ? 'cursor-grabbing scale-[0.95]'
+              : 'cursor-pointer hover:scale-[1.06] active:scale-[0.95]'
           }`}
           style={{
-            border: `1.5px solid ${isOpen ? palette.border : 'rgba(185, 221, 255, 0.34)'}`,
-            boxShadow: isOpen
-              ? `0 0 38px ${palette.primary}, 0 14px 40px -6px rgba(2, 12, 28, 0.78), inset 0 1.5px 1px rgba(245, 250, 255, 0.45)`
-              : `0 0 24px ${palette.secondary}, 0 14px 36px -6px rgba(2, 12, 28, 0.72), inset 0 1.5px 1px rgba(245, 250, 255, 0.38)`,
+            width: `${orbMetrics.activeDiameter}px`,
+            height: `${orbMetrics.activeDiameter}px`,
+            background: visuals.orbBackground,
+            backdropFilter: visuals.orbBackdropFilter,
+            WebkitBackdropFilter: visuals.orbBackdropFilter,
+            border: `1.25px solid ${hexToRgba(appearance.ringColor, isOpen ? 0.78 : 0.56)}`,
+            boxShadow: visuals.orbBoxShadow,
+            transition: settings.reduceMotion
+              ? 'none'
+              : 'width 240ms cubic-bezier(0.16, 1, 0.3, 1), height 240ms cubic-bezier(0.16, 1, 0.3, 1), transform 180ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 220ms ease',
           }}
         >
-          {/* Subtle Inner Optical Rim */}
+          {/* Top-left 3D Specular Glass Reflection */}
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute inset-[6px] rounded-full border border-white/15"
+            className="pointer-events-none absolute inset-[2px] rounded-full"
+            style={{
+              background: visuals.specularBackground,
+              maskImage: 'radial-gradient(ellipse 85% 58% at 38% 18%, black 0%, transparent 72%)',
+              WebkitMaskImage:
+                'radial-gradient(ellipse 85% 58% at 38% 18%, black 0%, transparent 72%)',
+            }}
           />
 
-          {/* Dominant Optical Number 59 */}
+          {/* Bottom Caustic Light Bounce */}
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 rounded-full"
+            style={{
+              background: visuals.bottomBounceBackground,
+            }}
+          />
+
+          {/* Crisp Inner Optical Rim */}
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-[3px] rounded-full"
+            style={{
+              border: '1px solid rgba(255, 255, 255, 0.24)',
+            }}
+          />
+
+          {/* Razor-Sharp Optical Number 59 — Crisp at 42px through 128px */}
           <span
             dir="ltr"
-            className="font-display font-bold text-[50px] leading-none tracking-[-0.04em] number-59-glass select-none"
+            className="relative z-10 font-display font-bold leading-none tracking-[-0.04em] number-59-glass-v2 select-none"
+            style={{
+              fontSize: `${orbMetrics.fontSizePx}px`,
+              transition: settings.reduceMotion
+                ? 'none'
+                : 'font-size 220ms cubic-bezier(0.16, 1, 0.3, 1)',
+            }}
           >
             59
           </span>
         </button>
 
-        {/* Discreet Gear Button (Visible on Orb Hover / Focus / Open Ring) */}
+        {/* Discreet Gear Button — Scaled & Offset Cleanly so 59 is Never Covered */}
         <button
           type="button"
           onClick={(e) => {
@@ -441,16 +559,22 @@ export const RadialLauncher: React.FC<RadialLauncherProps> = ({
           }}
           aria-label="مدیریت و تنظیمات لانچر ۵۹"
           title="تنظیمات و مدیریت برنامه‌ها"
-          className={`absolute -bottom-1 -right-1 w-7 h-7 rounded-full acrylic-node flex items-center justify-center text-[#B9DDFF] hover:text-[#F5FAFF] cursor-pointer transition-opacity duration-200 focus:outline-none focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[#65D5FF] ${
+          style={{
+            width: `${gearSizePx}px`,
+            height: `${gearSizePx}px`,
+            bottom: `${gearOffset}px`,
+            right: `${gearOffset}px`,
+          }}
+          className={`absolute rounded-full acrylic-node-v2 flex items-center justify-center text-[#D8F0FF] hover:text-white cursor-pointer transition-opacity duration-200 focus:outline-none focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[#76E4FF] ${
             isOpen
-              ? 'opacity-85 hover:opacity-100'
-              : 'opacity-0 group-hover:opacity-90 hover:!opacity-100'
+              ? 'opacity-90 hover:opacity-100'
+              : 'opacity-0 group-hover:opacity-95 hover:!opacity-100'
           }`}
         >
-          <Settings className="w-3.5 h-3.5" />
+          <Settings style={{ width: compactOrb ? '11px' : '14px', height: compactOrb ? '11px' : '14px' }} />
         </button>
 
-        {/* Compact Ring Pagination Pill (Only when > 8 Apps and Ring is Open) */}
+        {/* Compact Ring Pagination Control (Only when > 8 Apps and Ring is Open) */}
         <AnimatePresence>
           {isOpen && totalPages > 1 && (
             <motion.div

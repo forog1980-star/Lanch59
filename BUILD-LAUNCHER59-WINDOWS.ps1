@@ -182,12 +182,13 @@ try {
     Write-Host "TypeScript check passed with 0 errors."
 
     # =========================================================================
-    # STEP 6: Electron main & preload syntax checks
+    # STEP 6: Electron main, preload & iconExtractor syntax checks
     # =========================================================================
-    Write-StepHeader -Number 6 -Title "Verify Electron main.cjs and preload.cjs syntax"
+    Write-StepHeader -Number 6 -Title "Verify Electron main.cjs, preload.cjs, and iconExtractor.cjs syntax"
     $mainCjs = Join-Path $ProjectRoot "desktop\electron\main.cjs"
     $preloadCjs = Join-Path $ProjectRoot "desktop\electron\preload.cjs"
-    foreach ($jsFile in @($mainCjs, $preloadCjs)) {
+    $iconExtractorCjs = Join-Path $ProjectRoot "desktop\electron\iconExtractor.cjs"
+    foreach ($jsFile in @($mainCjs, $preloadCjs, $iconExtractorCjs)) {
         if (-not (Test-Path $jsFile)) {
             throw "Missing Electron script: $jsFile"
         }

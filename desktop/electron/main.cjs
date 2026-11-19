@@ -15,6 +15,12 @@ const fs = require('node:fs');
 const os = require('node:os');
 const { pathToFileURL } = require('node:url');
 const { execFile, spawn } = require('node:child_process');
+const {
+  extractAppIcons,
+  pickIconImageFile,
+  saveAppIconToDisk,
+  deleteAppIconFromDisk,
+} = require('./iconExtractor.cjs');
 
 const appLaunchStart = Date.now();
 let mainWindow = null;
@@ -24,6 +30,7 @@ let isQuitting = false;
 let currentMode = 'closed';
 let currentRingSize = 'medium';
 let currentCustomStageSize = null;
+let currentOrbSize = 42;
 let currentAlwaysOnTop = true;
 let saveWindowTimer = null;
 
@@ -184,20 +191,23 @@ function clampClosedCenterToDisplay(centerX, centerY, display) {
   return { centerX: clampedX, centerY: clampedY };
 }
 
-function getTargetDimensions(mode, ringSize, customStageSize) {
+function getTargetDimensions(mode, ringSize, customStageSize, orbSize) {
   if (mode === 'settings') {
-    return { width: 580, height: 610 };
+    return { width: 650, height: 700 };
   }
   if (mode === 'radial') {
     if (typeof customStageSize === 'number' && Number.isFinite(customStageSize) && customStageSize >= 260) {
-      const side = Math.ceil(customStageSize) + 36;
+      const side = Math.ceil(customStageSize) + 48;
       return { width: side, height: side };
     }
-    if (ringSize === 'small') return { width: 396, height: 396 };
-    if (ringSize === 'large') return { width: 528, height: 528 };
-    return { width: 460, height: 460 };
+    if (ringSize === 'small') return { width: 412, height: 412 };
+    if (ringSize === 'large') return { width: 548, height: 548 };
+    return { width: 476, height: 476 };
   }
-  return { width: 180, height: 180 };
+  const safeOrb = typeof orbSize === 'number' && Number.isFinite(orbSize) ? Math.max(36, Math.min(128, orbSize)) : 42;
+  // Generous transparent padding around closed orb so luminous glow & 3D shadow never clip into a square box edge
+  const closedSide = Math.max(128, Math.ceil(safeOrb + 88));
+  return { width: closedSide, height: closedSide };
 }
 
 function ensureCenterInitialized() {
@@ -242,10 +252,13 @@ function getPlacementContextPayload() {
   };
 }
 
-function applyWindowBounds(mode, ringSize, customStageSize) {
+function applyWindowBounds(mode, ringSize, customStageSize, orbSize) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   currentMode = mode;
   if (ringSize) currentRingSize = ringSize;
+  if (typeof orbSize === 'number' && Number.isFinite(orbSize)) {
+    currentOrbSize = Math.max(36, Math.min(128, orbSize));
+  }
   if (mode === 'radial') {
     if (typeof customStageSize === 'number' && Number.isFinite(customStageSize)) {
       currentCustomStageSize = customStageSize;
@@ -255,7 +268,7 @@ function applyWindowBounds(mode, ringSize, customStageSize) {
   }
   ensureCenterInitialized();
   const display = resolveDisplayForState();
-  const dims = getTargetDimensions(currentMode, currentRingSize, currentCustomStageSize);
+  const dims = getTargetDimensions(currentMode, currentRingSize, currentCustomStageSize, currentOrbSize);
   // Keep saved windowState.centerX / centerY untouched when radial/settings temporarily shift inward
   const bounds = clampTopLeftForCenter(
     windowState.centerX,
@@ -398,6 +411,7 @@ function getUserFilePath(key) {
     shortcuts: 'shortcuts.json',
     settings: 'settings.json',
     notes: 'notes.txt',
+    icons: 'icons-library.json',
   };
   const filename = map[key];
   if (!filename) return null;
@@ -477,7 +491,7 @@ function createMainWindow() {
   loadWindowState();
   currentAlwaysOnTop = readPersistedAlwaysOnTop();
   ensureCenterInitialized();
-  const dims = getTargetDimensions('closed', 'medium');
+  const dims = getTargetDimensions('closed', 'medium', null, currentOrbSize);
   const initialBounds = clampTopLeftForCenter(
     windowState.centerX,
     windowState.centerY,
@@ -675,12 +689,28 @@ app.whenReady().then(() => {
       title: 'انتخاب نرم‌افزار ویندوز',
       properties: ['openFile'],
       filters: [
-        { name: 'Windows Applications', extensions: ['exe', 'lnk', 'bat', 'cmd'] },
+        { name: 'Windows Applications & Shortcuts', extensions: ['exe', 'lnk', 'bat', 'cmd'] },
         { name: 'All Files', extensions: ['*'] },
       ],
     });
     if (result.canceled || result.filePaths.length === 0) return null;
     return result.filePaths[0];
+  });
+
+  ipcMain.handle('desktop:extractAppIcons', async (_event, filePath) => {
+    return extractAppIcons(filePath);
+  });
+
+  ipcMain.handle('desktop:pickIconImage', async () => {
+    return pickIconImageFile(mainWindow);
+  });
+
+  ipcMain.handle('desktop:saveAppIcon', (_event, appId, dataUrl, variant) => {
+    return saveAppIconToDisk(appId, dataUrl, variant);
+  });
+
+  ipcMain.handle('desktop:deleteAppIcon', (_event, appId) => {
+    return deleteAppIconFromDisk(appId);
   });
 
   ipcMain.handle('desktop:getAutoStart', () => {
@@ -713,7 +743,8 @@ app.whenReady().then(() => {
     const mode = payload?.mode || 'closed';
     const ringSize = payload?.ringSize || currentRingSize;
     const stageSize = typeof payload?.stageSize === 'number' ? payload.stageSize : null;
-    applyWindowBounds(mode, ringSize, stageSize);
+    const orbSize = typeof payload?.orbSize === 'number' ? payload.orbSize : currentOrbSize;
+    applyWindowBounds(mode, ringSize, stageSize, orbSize);
     return getPlacementContextPayload();
   });
 
@@ -722,7 +753,7 @@ app.whenReady().then(() => {
     ensureCenterInitialized();
     const numDx = Number(dx) || 0;
     const numDy = Number(dy) || 0;
-    const dims = getTargetDimensions(currentMode, currentRingSize, currentCustomStageSize);
+    const dims = getTargetDimensions(currentMode, currentRingSize, currentCustomStageSize, currentOrbSize);
     const nextCenterX = windowState.centerX + numDx;
     const nextCenterY = windowState.centerY + numDy;
     const display = screen.getDisplayNearestPoint({

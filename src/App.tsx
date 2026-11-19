@@ -2,7 +2,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertCircle, CheckCircle2, X } from 'lucide-react';
 import backdropImg from './assets/images/win11_blue_bloom_backdrop_1795005618866.jpg';
 import { RadialLauncher } from './components/RadialLauncher';
-import { RadialManagerModal } from './components/modals/RadialManagerModal';
+import {
+  RadialManagerModal,
+  SaveShortcutPayload,
+} from './components/modals/RadialManagerModal';
 import { DEFAULT_SETTINGS, DEFAULT_SHORTCUTS } from './data/defaultShortcuts';
 import { DesktopInfo, PlacementContext } from './types/desktop';
 import {
@@ -11,6 +14,14 @@ import {
   PositionPreset,
   SystemMetrics,
 } from './types/launcher';
+import { DEFAULT_APPEARANCE, resolveAppearance } from './utils/appearanceConfig';
+import {
+  IconLibraryMap,
+  loadIconLibrary,
+  removeIconLibraryEntry,
+  saveIconLibrary,
+  upsertIconLibraryEntry,
+} from './utils/iconLibrary';
 import { executeShortcutLaunch } from './utils/launcherActions';
 import {
   clampWebOrbOffset,
@@ -20,6 +31,7 @@ import {
 import {
   loadSettings,
   loadShortcuts,
+  mergeMigratedSettings,
   saveSettings,
   saveShortcuts,
 } from './utils/storage';
@@ -36,6 +48,7 @@ export default function App() {
 
   const [settings, setSettings] = useState<LauncherSettings>(() => loadSettings());
   const [shortcuts, setShortcuts] = useState<AppShortcut[]>(() => loadShortcuts());
+  const [iconLibrary, setIconLibrary] = useState<IconLibraryMap>(() => loadIconLibrary());
   const [desktopInfo, setDesktopInfo] = useState<DesktopInfo | null>(null);
 
   const [isOpen, setIsOpen] = useState(false);
@@ -86,6 +99,15 @@ export default function App() {
     }
   }, []);
 
+  const persistIconLibrary = useCallback((next: IconLibraryMap) => {
+    saveIconLibrary(next);
+    if (window.launcher59Desktop) {
+      window.launcher59Desktop
+        .writeUserFile('icons', JSON.stringify(next))
+        .catch(() => {});
+    }
+  }, []);
+
   const showToast = useCallback((ok: boolean, message: string) => {
     if (toastTimerRef.current) {
       window.clearTimeout(toastTimerRef.current);
@@ -100,7 +122,7 @@ export default function App() {
     }, 3400);
   }, []);
 
-  // Desktop transparency mode & initial local file hydration
+  // Desktop transparency mode & initial local file hydration (100% backward-compatible with v2.0.2)
   useEffect(() => {
     if (!window.launcher59Desktop) return;
     document.documentElement.classList.add('desktop-transparent');
@@ -110,13 +132,17 @@ export default function App() {
     desktop.getInfo().then(setDesktopInfo).catch(() => {});
     desktop.getPlacementContext().then(setPlacementContext).catch(() => {});
 
-    Promise.all([desktop.readUserFile('settings'), desktop.readUserFile('shortcuts')])
-      .then(([rawSettings, rawShortcuts]) => {
+    Promise.all([
+      desktop.readUserFile('settings'),
+      desktop.readUserFile('shortcuts'),
+      desktop.readUserFile('icons'),
+    ])
+      .then(([rawSettings, rawShortcuts, rawIcons]) => {
         if (rawSettings) {
           try {
-            const parsed = { ...DEFAULT_SETTINGS, ...JSON.parse(rawSettings) };
-            setSettings(parsed);
-            saveSettings(parsed);
+            const migrated = mergeMigratedSettings(JSON.parse(rawSettings));
+            setSettings(migrated);
+            saveSettings(migrated);
           } catch {
             // ignore corrupted user settings
           }
@@ -130,6 +156,17 @@ export default function App() {
             }
           } catch {
             // ignore corrupted shortcuts
+          }
+        }
+        if (rawIcons) {
+          try {
+            const parsed = JSON.parse(rawIcons);
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+              setIconLibrary(parsed as IconLibraryMap);
+              saveIconLibrary(parsed as IconLibraryMap);
+            }
+          } catch {
+            // ignore corrupted icon cache
           }
         }
       })
@@ -174,6 +211,8 @@ export default function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, [isDesktop]);
 
+  const resolvedAppearance = useMemo(() => resolveAppearance(settings), [settings]);
+
   const adaptiveLayout = useMemo(() => {
     if (isDesktop && placementContext) {
       return computeAdaptiveRadialLayout({
@@ -181,6 +220,7 @@ export default function App() {
         orbCenterY: placementContext.orbCenterY,
         workArea: placementContext.workArea,
         ringSize: settings.ringSize,
+        appearance: resolvedAppearance,
       });
     }
     return computeAdaptiveRadialLayout({
@@ -188,10 +228,11 @@ export default function App() {
       orbCenterY: Math.round(viewportSize.height / 2 + webOrbOffset.y),
       workArea: { x: 0, y: 0, width: viewportSize.width, height: viewportSize.height },
       ringSize: settings.ringSize,
+      appearance: resolvedAppearance,
     });
-  }, [isDesktop, placementContext, viewportSize, webOrbOffset, settings.ringSize]);
+  }, [isDesktop, placementContext, viewportSize, webOrbOffset, settings.ringSize, resolvedAppearance]);
 
-  // Sync floating Electron window bounds to current radial state
+  // Sync floating Electron window bounds to current radial state & custom orb size
   useEffect(() => {
     if (!window.launcher59Desktop) return;
     const mode = settingsOpen ? 'settings' : isOpen ? 'radial' : 'closed';
@@ -200,9 +241,16 @@ export default function App() {
         mode,
         ringSize: settings.ringSize,
         stageSize: adaptiveLayout.stageSize,
+        orbSize: resolvedAppearance.orbSizeClosed,
       })
       .catch(() => {});
-  }, [isOpen, settingsOpen, settings.ringSize, adaptiveLayout.stageSize]);
+  }, [
+    isOpen,
+    settingsOpen,
+    settings.ringSize,
+    adaptiveLayout.stageSize,
+    resolvedAppearance.orbSizeClosed,
+  ]);
 
   // Refresh system metrics only while Settings submenu is open
   useEffect(() => {
@@ -212,9 +260,12 @@ export default function App() {
       const next = await collectRealSystemMetrics(settings.bridgeUrl);
       if (active) setMetrics(next);
       if (active && window.launcher59Desktop) {
-        window.launcher59Desktop.getInfo().then((info) => {
-          if (active) setDesktopInfo(info);
-        }).catch(() => {});
+        window.launcher59Desktop
+          .getInfo()
+          .then((info) => {
+            if (active) setDesktopInfo(info);
+          })
+          .catch(() => {});
       }
     };
     load();
@@ -243,7 +294,13 @@ export default function App() {
   const updateSettings = useCallback(
     (partial: Partial<LauncherSettings>) => {
       setSettings((prev) => {
-        const next = { ...prev, ...partial };
+        const next: LauncherSettings = {
+          ...prev,
+          ...partial,
+          appearance: partial.appearance
+            ? resolveAppearance({ ...prev, ...partial })
+            : prev.appearance,
+        };
         persistSettings(next);
         return next;
       });
@@ -302,20 +359,38 @@ export default function App() {
     });
   };
 
-  const handleSaveShortcut = (
-    payload: Omit<AppShortcut, 'id' | 'order' | 'launchCount'> & { id?: string }
-  ) => {
+  const handleSaveShortcut = (payload: SaveShortcutPayload) => {
+    const appId = payload.id || `custom-${Date.now()}`;
+
+    // Keep shortcut JSON lean by storing heavy image data URLs in the dedicated iconLibrary
+    const cleanShortcutPayload: Omit<AppShortcut, 'id' | 'order' | 'launchCount'> = {
+      name: payload.name,
+      englishName: payload.englishName,
+      description: payload.description,
+      category: payload.category,
+      launchType: payload.launchType,
+      target: payload.target,
+      fallbackWebUrl: payload.fallbackWebUrl,
+      bridgeCommand: payload.bridgeCommand,
+      iconKey: payload.iconKey,
+      brandIconKey: payload.brandIconKey,
+      iconSource: payload.iconSource,
+      resolvedExePath: payload.resolvedExePath,
+      size: payload.size,
+      pinnedToDock: payload.pinnedToDock,
+    };
+
     setShortcuts((prev) => {
       let next: AppShortcut[];
       if (payload.id) {
         next = prev.map((item) =>
-          item.id === payload.id ? { ...item, ...payload, id: item.id } : item
+          item.id === payload.id ? { ...item, ...cleanShortcutPayload, id: item.id } : item
         );
         showToast(true, `«${payload.name}» به‌روزرسانی شد.`);
       } else {
         const added: AppShortcut = {
-          ...payload,
-          id: `custom-${Date.now()}`,
+          ...cleanShortcutPayload,
+          id: appId,
           order: prev.length,
           launchCount: 0,
         };
@@ -325,6 +400,41 @@ export default function App() {
       persistShortcuts(next);
       return next;
     });
+
+    // Persist per-app independent icon entry
+    if (
+      payload.customIconDataUrl ||
+      payload.originalIconDataUrl ||
+      payload.brandIconKey ||
+      (payload.extractedIconVariants && payload.extractedIconVariants.length > 0)
+    ) {
+      setIconLibrary((prev) => {
+        const next = upsertIconLibraryEntry(prev, {
+          appId,
+          activeDataUrl: payload.customIconDataUrl,
+          originalDataUrl: payload.originalIconDataUrl,
+          extractedVariants: payload.extractedIconVariants,
+          source: payload.iconSource || 'builtin',
+          brandIconKey: payload.brandIconKey,
+          extractedFrom: payload.resolvedExePath || payload.target,
+          updatedAt: Date.now(),
+        });
+        persistIconLibrary(next);
+        return next;
+      });
+
+      if (window.launcher59Desktop && payload.customIconDataUrl) {
+        window.launcher59Desktop
+          .saveAppIcon(appId, payload.customIconDataUrl)
+          .catch(() => {});
+      }
+    } else {
+      setIconLibrary((prev) => {
+        const next = removeIconLibraryEntry(prev, appId);
+        persistIconLibrary(next);
+        return next;
+      });
+    }
   };
 
   const handleDeleteShortcut = (id: string) => {
@@ -337,6 +447,13 @@ export default function App() {
       if (target) showToast(true, `«${target.name}» حذف شد.`);
       return next;
     });
+
+    setIconLibrary((prev) => {
+      const next = removeIconLibraryEntry(prev, id);
+      persistIconLibrary(next);
+      return next;
+    });
+    window.launcher59Desktop?.deleteAppIcon(id).catch(() => {});
   };
 
   const handleSetPositionPreset = (preset: PositionPreset) => {
@@ -367,9 +484,10 @@ export default function App() {
   const handleImportBackup = (data: {
     settings?: LauncherSettings;
     shortcuts?: AppShortcut[];
+    iconLibrary?: IconLibraryMap;
   }) => {
     if (data.settings) {
-      const merged = { ...DEFAULT_SETTINGS, ...data.settings };
+      const merged = mergeMigratedSettings(data.settings);
       setSettings(merged);
       persistSettings(merged);
       window.launcher59Desktop?.setAlwaysOnTop(merged.alwaysOnTop).catch(() => {});
@@ -378,7 +496,21 @@ export default function App() {
       setShortcuts(data.shortcuts);
       persistShortcuts(data.shortcuts);
     }
+    if (data.iconLibrary && typeof data.iconLibrary === 'object') {
+      setIconLibrary(data.iconLibrary);
+      persistIconLibrary(data.iconLibrary);
+    }
     showToast(true, 'پشتیبان محلی بازیابی شد.');
+  };
+
+  const handleResetAppearance = () => {
+    updateSettings({
+      appearance: { ...DEFAULT_APPEARANCE },
+      glowTheme: DEFAULT_SETTINGS.glowTheme,
+      ringSize: DEFAULT_SETTINGS.ringSize,
+      haloIntensity: DEFAULT_SETTINGS.haloIntensity,
+    });
+    showToast(true, 'تنظیمات ظاهری به پیش‌فرض نسخه ۲.۱.۰ بازگردانده شد (میانبرها حفظ شدند).');
   };
 
   const handleResetDefaults = () => {
@@ -387,6 +519,8 @@ export default function App() {
     window.launcher59Desktop?.setAlwaysOnTop(DEFAULT_SETTINGS.alwaysOnTop).catch(() => {});
     setShortcuts(DEFAULT_SHORTCUTS);
     persistShortcuts(DEFAULT_SHORTCUTS);
+    setIconLibrary({});
+    persistIconLibrary({});
     if (!isDesktop) {
       setWebOrbOffset({ x: 0, y: 0 });
     } else {
@@ -436,6 +570,7 @@ export default function App() {
       <RadialLauncher
         shortcuts={sortedShortcuts}
         settings={settings}
+        iconLibrary={iconLibrary}
         isOpen={isOpen}
         settingsOpen={settingsOpen}
         isDesktop={isDesktop}
@@ -488,6 +623,7 @@ export default function App() {
         open={settingsOpen}
         shortcuts={sortedShortcuts}
         settings={settings}
+        iconLibrary={iconLibrary}
         metrics={metrics}
         desktopInfo={desktopInfo}
         onClose={() => setSettingsOpen(false)}
@@ -497,6 +633,7 @@ export default function App() {
         onMoveShortcut={handleMoveShortcut}
         onSetPositionPreset={handleSetPositionPreset}
         onImportBackup={handleImportBackup}
+        onResetAppearance={handleResetAppearance}
         onResetDefaults={handleResetDefaults}
       />
     </div>

@@ -1,5 +1,6 @@
 import { DEFAULT_SETTINGS, DEFAULT_SHORTCUTS } from '../data/defaultShortcuts';
 import { AppShortcut, LauncherNotification, LauncherSettings } from '../types/launcher';
+import { resolveAppearance } from './appearanceConfig';
 
 const KEYS = {
   SHORTCUTS: 'launcher59_shortcuts_v1',
@@ -30,11 +31,23 @@ export function saveShortcuts(shortcuts: AppShortcut[]): void {
   }
 }
 
+export function mergeMigratedSettings(rawParsed: Partial<LauncherSettings>): LauncherSettings {
+  const mergedBase: LauncherSettings = {
+    ...DEFAULT_SETTINGS,
+    ...rawParsed,
+    appearance: rawParsed.appearance,
+  };
+  return {
+    ...mergedBase,
+    appearance: resolveAppearance(mergedBase),
+  };
+}
+
 export function loadSettings(): LauncherSettings {
   try {
     const raw = localStorage.getItem(KEYS.SETTINGS);
     if (!raw) return DEFAULT_SETTINGS;
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+    return mergeMigratedSettings(JSON.parse(raw));
   } catch {
     return DEFAULT_SETTINGS;
   }

@@ -8,7 +8,7 @@ export interface AppManufacturerMetadata {
 
 export const APP_METADATA: AppManufacturerMetadata = {
   productName: 'LAUNCHER 59',
-  version: '2.0.2',
+  version: '2.1.0',
   manufacturerName: 'در انتظار تأیید کاربر',
   contactEmail: 'mahdyabbasy@yahoo.com',
   buildYear: '2026',

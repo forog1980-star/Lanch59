@@ -1,4 +1,4 @@
-import { PositionPreset, RingSize } from '../types/launcher';
+import { AppearanceSettings, PositionPreset, RingSize } from '../types/launcher';
 
 export interface WorkAreaRect {
   x: number;
@@ -15,50 +15,59 @@ export interface RingGeometrySpec {
 }
 
 export const RING_GEOMETRY_SPECS: Record<RingSize, RingGeometrySpec> = {
-  small: { baseRadius: 122, nodeSize: 48, iconClass: 'w-5 h-5', orbDiameter: 116 },
-  medium: { baseRadius: 150, nodeSize: 54, iconClass: 'w-[22px] h-[22px]', orbDiameter: 116 },
-  large: { baseRadius: 180, nodeSize: 58, iconClass: 'w-6 h-6', orbDiameter: 116 },
+  small: { baseRadius: 122, nodeSize: 48, iconClass: 'w-5 h-5', orbDiameter: 42 },
+  medium: { baseRadius: 150, nodeSize: 54, iconClass: 'w-[24px] h-[24px]', orbDiameter: 42 },
+  large: { baseRadius: 180, nodeSize: 60, iconClass: 'w-7 h-7', orbDiameter: 42 },
 };
 
 export interface AdaptiveRadialLayout {
   effectiveRadius: number;
   stageSize: number;
   nodeSize: number;
+  iconSizePx: number;
   iconClass: string;
   /** Temporary shift in px applied when open so full halo stays inside visible workArea */
   openShiftX: number;
   openShiftY: number;
-  /** Compactness factor 0.8..1 applied only when viewport space is very tight */
+  /** Compactness factor applied only when viewport space is very tight */
   compacted: boolean;
 }
 
 /**
  * Computes an adaptive radial layout given the orb's resting center inside a display workArea.
- * Ensures the entire halo, icon nodes, and edge margin remain completely visible inside workArea
- * without permanently changing the user's saved orb position.
+ * Supports v2.1.0 appearance overrides (custom radius, icon node size, spacing multiplier)
+ * while keeping radial menu icons full-sized regardless of compact closed orb diameter.
  */
 export function computeAdaptiveRadialLayout(params: {
   orbCenterX: number;
   orbCenterY: number;
   workArea: WorkAreaRect;
   ringSize: RingSize;
+  appearance?: AppearanceSettings;
 }): AdaptiveRadialLayout {
-  const { orbCenterX, orbCenterY, workArea, ringSize } = params;
+  const { orbCenterX, orbCenterY, workArea, ringSize, appearance } = params;
   const spec = RING_GEOMETRY_SPECS[ringSize];
 
-  const edgeMargin = 18;
-  const minClearRadius = Math.max(104, Math.round(spec.baseRadius * 0.84));
+  const nodeSize = appearance ? appearance.radialIconSize : spec.nodeSize;
+  const spacingMultiplier = appearance ? appearance.radialIconSpacing : 1.0;
+  const requestedRadius = Math.round(
+    (appearance ? appearance.radialRadius : spec.baseRadius) * spacingMultiplier
+  );
+
+  // Extra margin guarantees glow & hover lift never clip against transparent window boundaries
+  const edgeMargin = 28;
+  const minClearRadius = Math.max(96, Math.round(requestedRadius * 0.82));
   const maxFitRadius = Math.floor(
-    Math.min(workArea.width, workArea.height) / 2 - spec.nodeSize / 2 - edgeMargin
+    Math.min(workArea.width, workArea.height) / 2 - nodeSize / 2 - edgeMargin
   );
 
   const effectiveRadius = Math.max(
     minClearRadius,
-    Math.min(spec.baseRadius, maxFitRadius)
+    Math.min(requestedRadius, maxFitRadius)
   );
-  const compacted = effectiveRadius < spec.baseRadius;
+  const compacted = effectiveRadius < requestedRadius;
 
-  const requiredHalfSpan = effectiveRadius + spec.nodeSize / 2 + edgeMargin;
+  const requiredHalfSpan = effectiveRadius + nodeSize / 2 + edgeMargin;
   const stageSize = Math.ceil(requiredHalfSpan * 2);
 
   const minCenterX = workArea.x + requiredHalfSpan;
@@ -76,10 +85,14 @@ export function computeAdaptiveRadialLayout(params: {
       ? Math.max(minCenterY, Math.min(maxCenterY, orbCenterY))
       : workArea.y + workArea.height / 2;
 
+  const iconScale = appearance ? appearance.iconImageScale : 0.72;
+  const iconSizePx = Math.max(18, Math.round(nodeSize * iconScale));
+
   return {
     effectiveRadius,
     stageSize,
-    nodeSize: spec.nodeSize,
+    nodeSize,
+    iconSizePx,
     iconClass: spec.iconClass,
     openShiftX: Math.round(clampedCenterX - orbCenterX),
     openShiftY: Math.round(clampedCenterY - orbCenterY),

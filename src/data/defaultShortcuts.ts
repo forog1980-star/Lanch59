@@ -1,4 +1,5 @@
 import { AppCategory, AppShortcut, IconKey, LauncherSettings } from '../types/launcher';
+import { DEFAULT_APPEARANCE } from '../utils/appearanceConfig';
 
 export const CATEGORY_LABELS: Record<AppCategory | 'all' | 'recent', string> = {
   all: 'همه برنامه‌ها',
@@ -48,6 +49,7 @@ export const DEFAULT_SETTINGS: LauncherSettings = {
   bridgeUrl: 'http://127.0.0.1:5959',
   userName: 'کاربر ویندوز ۱۱',
   userRole: 'میز کار اختصاصی',
+  appearance: DEFAULT_APPEARANCE,
 };
 
 export const DEFAULT_SHORTCUTS: AppShortcut[] = [

@@ -1,4 +1,4 @@
-# راهنمای ساخت محلی LAUNCHER 59 (نسخه 2.0.2) روی ویندوز
+# راهنمای ساخت محلی LAUNCHER 59 (نسخه 2.1.0) روی ویندوز
 
 این راهنما مراحل دقیق ساخت دو فایل اجرایی نهایی (**Setup** و **Portable**) را مستقیماً روی کامپیوتر ویندوزی شما، پس از دانلود فایل ZIP پروژه از Google AI Studio شرح می‌دهد.
 
@@ -37,7 +37,7 @@
 3. نصب وابستگی‌های دسکتاپ (`Electron 45.3.4` و `electron-builder 26.18.0`).
 4. بررسی و تضمین وجود آیکون‌های اصلی `desktop/build/icon.png` و `desktop/build/icon.ico` از طریق `desktop/build/ensure-icons.mjs`.
 5. اجرای بررسی تایپ‌ها (`npx tsc --noEmit`).
-6. بررسی نحوی `desktop/electron/main.cjs` و `desktop/electron/preload.cjs`.
+6. بررسی نحوی `desktop/electron/main.cjs`، `desktop/electron/preload.cjs` و `desktop/electron/iconExtractor.cjs`.
 7. ساخت Renderer با `ELECTRON_BUILD=true` در مسیر `desktop/renderer`.
 8. اجرای `electron-builder` با Targetهای داخلی `nsis` و `portable` برای معماری `x64` در یک اجرا.
 9. بررسی وجود `LAUNCHER 59.exe` و `resources\app.asar` در خروجی `win-unpacked`.
@@ -52,9 +52,9 @@
 ## ۴. فایل‌های خروجی نهایی در پوشه `release-out`
 پس از اتمام موفق، سه فایل زیر در پوشه `release-out` در ریشه پروژه آماده نصب و تست خواهند بود:
 
-- `release-out\Launcher59-Setup-2.0.2-x64.exe`
+- `release-out\Launcher59-Setup-2.1.0-x64.exe`
   - نصب‌کننده استاندارد برای کاربر فعلی بدون نیاز به Administrator، دارای انتخاب مسیر نصب، میانبر Desktop، میانبر Start Menu، Uninstaller رسمی و آیکون اصلی LAUNCHER 59.
-- `release-out\Launcher59-Portable-2.0.2-x64.exe`
+- `release-out\Launcher59-Portable-2.1.0-x64.exe`
   - فایل اجرایی تک‌فایلی قابل‌حمل بدون نیاز به نصب، با آیکون اصلی LAUNCHER 59.
 - `release-out\SHA256SUMS.txt`
   - هش `SHA256` واقعی هر دو فایل برای راستی‌آزمایی.

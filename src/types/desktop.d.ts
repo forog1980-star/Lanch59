@@ -25,6 +25,17 @@ export interface PlacementContext {
   displayId: number;
 }
 
+export interface ExtractedAppIconResult {
+  ok: boolean;
+  originalPath: string;
+  resolvedPath: string;
+  detectedName: string;
+  icons: string[];
+  primaryIcon: string | null;
+  iconSourcePath?: string;
+  error?: string;
+}
+
 export interface Launcher59DesktopAPI {
   getInfo: () => Promise<DesktopInfo>;
   getSystemStats: () => Promise<BridgeSystemStats & { processRssMb: number; startupMs: number }>;
@@ -37,6 +48,10 @@ export interface Launcher59DesktopAPI {
     fallbackWebUrl?: string;
   }) => Promise<DesktopLaunchResult>;
   pickExecutable: () => Promise<string | null>;
+  extractAppIcons: (filePath: string) => Promise<ExtractedAppIconResult>;
+  pickIconImage: () => Promise<{ ok: boolean; dataUrl?: string; icons?: string[]; filePath?: string; error?: string }>;
+  saveAppIcon: (appId: string, dataUrl: string, variant?: 'active' | 'original') => Promise<boolean>;
+  deleteAppIcon: (appId: string) => Promise<boolean>;
   getAutoStart: () => Promise<boolean>;
   setAutoStart: (enabled: boolean) => Promise<boolean>;
   setAlwaysOnTop: (enabled: boolean) => Promise<boolean>;
@@ -45,11 +60,12 @@ export interface Launcher59DesktopAPI {
     mode: 'closed' | 'radial' | 'settings';
     ringSize?: RingSize;
     stageSize?: number;
+    orbSize?: number;
   }) => Promise<PlacementContext | void>;
   moveWindowBy: (dx: number, dy: number) => Promise<void>;
   setPositionPreset: (preset: PositionPreset) => Promise<PlacementContext | void>;
-  readUserFile: (name: 'shortcuts' | 'settings' | 'notes') => Promise<string | null>;
-  writeUserFile: (name: 'shortcuts' | 'settings' | 'notes', content: string) => Promise<boolean>;
+  readUserFile: (name: 'shortcuts' | 'settings' | 'notes' | 'icons') => Promise<string | null>;
+  writeUserFile: (name: 'shortcuts' | 'settings' | 'notes' | 'icons', content: string) => Promise<boolean>;
   notify: (title: string, body: string) => Promise<void>;
   windowAction: (action: 'minimize' | 'maximize' | 'close' | 'quit') => Promise<void>;
   onTrayCommand: (
