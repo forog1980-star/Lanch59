@@ -6,7 +6,8 @@
   "license": "Apache-2.0",
   "main": "electron/main.cjs",
   "scripts": {
-    "pack:dir": "electron-builder --win dir --x64 --config electron-builder.yml"
+    "pack:dir": "electron-builder --win dir --x64 --config electron-builder.yml",
+    "dist:win": "electron-builder --win nsis portable --x64 --config electron-builder.yml"
   },
   "devDependencies": {
     "electron": "45.3.4",

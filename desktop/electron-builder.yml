@@ -8,11 +8,32 @@ files:
   - electron/**/*
   - renderer/**/*
   - build/icon.png
+  - build/icon.ico
   - package.json
 asar: true
 win:
+  icon: build/icon.ico
+  forceCodeSigning: false
   target:
-    - target: dir
+    - target: nsis
       arch:
         - x64
-  signAndEditExecutable: false
+    - target: portable
+      arch:
+        - x64
+nsis:
+  artifactName: Launcher59-Setup-${version}-x64.${ext}
+  oneClick: false
+  perMachine: false
+  allowElevation: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: LAUNCHER 59
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  installerHeaderIcon: build/icon.ico
+  uninstallDisplayName: LAUNCHER 59 ${version}
+  deleteAppDataOnUninstall: false
+portable:
+  artifactName: Launcher59-Portable-${version}-x64.${ext}
