@@ -39,7 +39,7 @@ Unicode True
 Section "LAUNCHER 59 Core Application (Required)" SecCore
   SectionIn RO
   SetOutPath "$INSTDIR"
-  File /r "../release-dist/win-unpacked/*.*"
+  File /r "..\release-dist\win-unpacked\*.*"
   File "icon.ico"
 
   WriteRegStr HKCU "Software\LAUNCHER 59" "Install_Dir" "$INSTDIR"

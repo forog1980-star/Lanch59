@@ -13,6 +13,6 @@ Unicode True
 Section "Portable"
   InitPluginsDir
   SetOutPath "$PLUGINSDIR\app"
-  File /r "../release-dist/win-unpacked/*.*"
+  File /r "..\release-dist\win-unpacked\*.*"
   ExecWait '"$PLUGINSDIR\app\LAUNCHER 59.exe"'
 SectionEnd

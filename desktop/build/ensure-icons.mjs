@@ -62,7 +62,7 @@ function buildBmpDibEntry(width, height, rgba) {
   buf.writeUInt16LE(1, 12); // biPlanes
   buf.writeUInt16LE(32, 14); // biBitCount
   buf.writeUInt32LE(0, 16); // BI_RGB
-  buf.writeUInt32LE(xorSize + andSize, 20); // biSizeImage
+  buf.writeUInt32LE(xorSize, 20); // biSizeImage (XOR pixel data size, matching standard Windows ICO)
 
   // Bottom-up BGRA pixels
   let offset = headerSize;
