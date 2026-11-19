@@ -1,6 +1,6 @@
 node_modules/
 desktop/node_modules/
-build/
+/build/
 dist/
 coverage/
 desktop/release-dist/
@@ -8,6 +8,7 @@ desktop/renderer/
 Launcher-59-Release/
 Recovery-Points/
 release-out/
+source-archive/
 *.exe
 *.7z
 *.asar

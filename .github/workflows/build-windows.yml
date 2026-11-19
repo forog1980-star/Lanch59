@@ -23,22 +23,91 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Install root dependencies
+      - name: Install root dependencies (npm ci)
         run: npm ci --legacy-peer-deps
 
-      - name: Install desktop dependencies
+      - name: Ensure Windows x64 native optional bindings for Vite/Tailwind
+        shell: pwsh
+        run: |
+          $missing = @()
+          $checks = @(
+            @{ pkg = 'rolldown'; binding = '@rolldown/binding-win32-x64-msvc' },
+            @{ pkg = '@tailwindcss/oxide'; binding = '@tailwindcss/oxide-win32-x64-msvc' },
+            @{ pkg = 'lightningcss'; binding = 'lightningcss-win32-x64-msvc' },
+            @{ pkg = 'esbuild'; binding = '@esbuild/win32-x64' }
+          )
+          foreach ($c in $checks) {
+            $bindingDir = Join-Path "node_modules" ($c.binding -replace '/', '\')
+            if (-not (Test-Path $bindingDir)) {
+              $parentPkgJson = Join-Path "node_modules" (($c.pkg -replace '/', '\') + "\package.json")
+              if (Test-Path $parentPkgJson) {
+                $ver = (Get-Content $parentPkgJson | ConvertFrom-Json).version
+                $missing += "$($c.binding)@$ver"
+              }
+            }
+          }
+          if ($missing.Count -gt 0) {
+            Write-Host "Installing missing Windows x64 native optional bindings: $($missing -join ', ')"
+            npm install --no-save --no-audit --no-fund --legacy-peer-deps @missing
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } else {
+            Write-Host "All Windows x64 native optional bindings are already present."
+          }
+
+      - name: Install desktop dependencies (Electron)
         run: npm --prefix desktop ci --legacy-peer-deps
+
+      - name: TypeScript & Electron syntax checks
+        shell: pwsh
+        run: |
+          npx tsc --noEmit
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node --check desktop/electron/main.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node --check desktop/electron/preload.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Build renderer bundle
         shell: pwsh
         run: |
           $env:ELECTRON_BUILD = "true"
           npx vite build --outDir desktop/renderer --emptyOutDir
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Pack Windows x64 application directory
+      - name: Verify desktop renderer and required packaging assets
+        shell: pwsh
+        run: |
+          $required = @(
+            'desktop/renderer/index.html',
+            'desktop/build/icon.png',
+            'desktop/build/icon.ico',
+            'desktop/build/setup.nsi',
+            'desktop/build/portable.nsi',
+            'desktop/electron-builder.yml'
+          )
+          foreach ($item in $required) {
+            if (-not (Test-Path $item)) {
+              Write-Error "Required file missing: $item"
+              exit 1
+            }
+          }
+          Write-Host "All required renderer and packaging files verified."
+
+      - name: Pack Windows x64 application directory (Electron Builder)
         run: npm --prefix desktop run pack:dir
 
-      - name: Build NSIS Setup & Portable installers
+      - name: Verify unpacked Electron application
+        shell: pwsh
+        run: |
+          $exe = "desktop/release-dist/win-unpacked/LAUNCHER 59.exe"
+          $asar = "desktop/release-dist/win-unpacked/resources/app.asar"
+          if (-not (Test-Path $exe) -or -not (Test-Path $asar)) {
+            Write-Error "Unpacked Electron executable or app.asar missing."
+            exit 1
+          }
+          Write-Host "Verified unpacked app:" (Get-Item $exe).Length "bytes"
+
+      - name: Build NSIS Setup & Portable installers and compute SHA256
         shell: pwsh
         run: |
           $version = (Get-Content desktop/package.json | ConvertFrom-Json).version
@@ -58,7 +127,20 @@ jobs:
           & $makensis /V3 "/DOUT_FILE=$portableOut" desktop/build/portable.nsi
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-          $files = Get-ChildItem release-out\*.exe
+          foreach ($outFile in @($setupOut, $portableOut)) {
+            if (-not (Test-Path $outFile)) {
+              Write-Error "Expected output missing: $outFile"
+              exit 1
+            }
+            $size = (Get-Item $outFile).Length
+            if ($size -lt 10485760) {
+              Write-Error "Unexpectedly small installer ($size bytes): $outFile"
+              exit 1
+            }
+            Write-Host "Built: $outFile ($size bytes)"
+          }
+
+          $files = Get-ChildItem release-out\*.exe | Sort-Object Name
           $lines = foreach ($f in $files) {
             $hash = (Get-FileHash -Algorithm SHA256 $f.FullName).Hash.ToLower()
             "$hash  $($f.Name)"
@@ -74,10 +156,66 @@ jobs:
             release-out/*.exe
             release-out/SHA256SUMS.txt
 
+      - name: Prepare bilingual release notes
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          node -e '
+            const fs = require("node:fs");
+            const version = JSON.parse(fs.readFileSync("desktop/package.json", "utf8")).version;
+            const sums = fs.readFileSync("release-out/SHA256SUMS.txt", "utf8").trim();
+            const bt = "`";
+            const fence = "```";
+            const body = [
+              `## LAUNCHER 59 v${version} — انتشار رسمی دسکتاپ ویندوز (x64)`,
+              "",
+              "**LAUNCHER 59** یک لانچر دایره‌ای شناور، سبک و شیشه‌ای برای ویندوز ۱۰ و ۱۱ است.",
+              "",
+              `### قابلیت‌های کلیدی نسخه ${version}`,
+              "- **موقعیت‌یابی پویا ۹گانه + جابه‌جایی آزاد (Drag) و پایداری چندمانیتوره** (مرکز، لبه‌ها و ۴ گوشه با تطبیق خودکار هنگام تغییر رزولوشن یا مانیتور)",
+              "- **کاهش شفافیت خودکار در بیکاری (Smart Idle Auto-Fade)** با بیدارشدن فوری هنگام اشاره ماوس",
+              "- **بازشدن تطبیقی حلقه برنامه‌ها (Adaptive Radial Menu)** برای دید کامل آیکون‌ها و برچسب‌ها در لبه‌ها و گوشه‌ها",
+              `- **پشتیبانی کامل از System Tray، اجرای مستقیم برنامه‌ها و ذخیره محلی تنظیمات** (${bt}%APPDATA%\\launcher-59\\${bt})`,
+              "- **بخش درباره برنامه (About)** در پنجره تنظیمات و ارتقای موتور به **Electron 45.3.4**",
+              "",
+              "### راهنمای نصب",
+              `- **نسخه نصبی (${bt}Launcher59-Setup-${version}-x64.exe${bt}):** نصب استاندارد برای کاربر فعلی بدون نیاز به دسترسی Administrator، همراه با میانبر منوی Start، دسکتاپ و Uninstaller رسمی.`,
+              `- **نسخه قابل‌حمل (${bt}Launcher59-Portable-${version}-x64.exe${bt}):** اجرای مستقیم بدون نصب؛ مناسب برای تست سریع یا اجرا از حافظه جانبی.`,
+              "- **توجه امنیتی (Unsigned Build):** این نسخه فاقد گواهی امضای دیجیتال (Code Signing Certificate) است؛ در صورت نمایش هشدار Windows SmartScreen، از گزینه **More info -> Run anyway** استفاده کنید و صحت فایل را با SHA256 زیر تطبیق دهید.",
+              "",
+              "---",
+              "",
+              `## LAUNCHER 59 v${version} — Windows x64 Desktop Release`,
+              "",
+              "Minimal floating glassmorphic radial launcher for Windows 10 & Windows 11.",
+              "",
+              "### Highlights",
+              "- 9-point quick positioning + free drag + multi-monitor work-area resilience",
+              "- Configurable Smart Idle Auto-Fade with instant hover/click wake",
+              "- Adaptive Radial Menu & edge-aware tooltips",
+              "- Local offline persistence, System Tray controls, Electron 45.3.4 runtime",
+              "",
+              "### Packages",
+              `- **Setup Installer (${bt}Launcher59-Setup-${version}-x64.exe${bt})**: Per-user Windows installer with Start Menu, Desktop shortcut, and uninstaller.`,
+              `- **Portable (${bt}Launcher59-Portable-${version}-x64.exe${bt})**: Single self-extracting executable requiring no installation.`,
+              `- **Note**: Unsigned build (no Authenticode certificate). Verify downloads against ${bt}SHA256SUMS.txt${bt}.`,
+              "",
+              "### SHA256 Checksums",
+              `${fence}text`,
+              sums,
+              fence,
+            ].join("\n");
+            fs.writeFileSync("release-out/RELEASE_NOTES.md", body + "\n", "utf8");
+          '
+
       - name: Publish GitHub Release on version tag
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          name: LAUNCHER 59 ${{ github.ref_name }}
+          body_path: release-out/RELEASE_NOTES.md
           files: |
             release-out/*.exe
             release-out/SHA256SUMS.txt
