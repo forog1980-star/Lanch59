@@ -14,22 +14,53 @@
 
 ## دانلود نسخه ویندوز (v2.1.0)
 
-**بسته آماده نصب همراه با تنظیمات نمونه و میانبرهای از پیش پیکربندی‌شده:**
-- [دانلود بسته کامل LAUNCHER59-v2.1.0-Preconfigured-Windows-x64.zip](https://github.com/forog1980-star/Lanch59/releases/download/v2.1.0/LAUNCHER59-v2.1.0-Preconfigured-Windows-x64.zip)
-- [فایل کنترل صحت همین بسته (SHA256)](https://github.com/forog1980-star/Lanch59/releases/download/v2.1.0/LAUNCHER59-v2.1.0-Preconfigured-Windows-x64.zip.sha256.txt)
+### برای نصب معمولی، دقیقاً این فایل را دانلود و اجرا کنید
 
-برای استفاده از بسته آماده، ابتدا ZIP را استخراج کنید، فایل Setup داخل پوشه `01-Installer` را نصب کنید و پیش از اولین اجرای برنامه، اسکریپت `Import-Launcher59-Configuration.ps1` را از پوشه اصلی بسته اجرا کنید. لانچر باید هنگام واردکردن تنظیمات بسته باشد. میانبرها و مسیر برنامه‌ها مطابق رایانه‌ای هستند که بسته در آن پیکربندی شده‌اند؛ ممکن است در رایانه مقصد لازم باشد مسیر بعضی برنامه‌ها را اصلاح کنید.
+**`Launcher59-Setup-2.1.0-x64.exe`**
 
-**نصب‌کننده مستقل و نسخه قابل‌حمل:**
-- **نسخه نصبی (Setup):** [دانلود Launcher59-Setup-2.1.0-x64.exe](https://github.com/forog1980-star/Lanch59/releases/download/v2.1.0/Launcher59-Setup-2.1.0-x64.exe)
-- **نسخه قابل‌حمل (Portable):** [دانلود Launcher59-Portable-2.1.0-x64.exe](https://github.com/forog1980-star/Lanch59/releases/download/v2.1.0/Launcher59-Portable-2.1.0-x64.exe)
-- **فایل بررسی اصالت (SHA256):** [دانلود SHA256SUMS.txt](https://github.com/forog1980-star/Lanch59/releases/download/v2.1.0/SHA256SUMS.txt)
-- **صفحه همه فایل‌های انتشار:** [مشاهده دارایی‌های انتشار v2.1.0 در GitHub](https://github.com/forog1980-star/Lanch59/releases/tag/v2.1.0)
+[دانلود مستقیم Launcher59-Setup-2.1.0-x64.exe](https://github.com/forog1980-star/Lanch59/releases/download/v2.1.0/Launcher59-Setup-2.1.0-x64.exe)
 
-### تفاوت نسخه Setup و Portable
+این فایل، نصب‌کننده مستقل و پیشنهادی برای کاربر عادی است. آن را اجرا کنید و مراحل نصب را ادامه دهید. نصب برای کاربر فعلی ویندوز انجام می‌شود و به دسترسی Administrator نیاز ندارد.
 
-- **Setup (`Launcher59-Setup-2.1.0-x64.exe`):** برنامه را برای کاربر فعلی ویندوز نصب می‌کند؛ به دسترسی Administrator نیاز ندارد، میانبر منوی Start و دسکتاپ می‌سازد و در بخش حذف برنامه‌های ویندوز (Uninstall) ثبت می‌شود.
-- **Portable (`Launcher59-Portable-2.1.0-x64.exe`):** بدون نصب، مستقیماً اجرا می‌شود و برای آزمایش سریع یا اجرا از فلش و پوشه دلخواه مناسب است.
+SHA256: `9e025cc691069a257193d97e1dede3a78aae5087b95849ded0d834f191bf0e4a`
+
+### نصب همراه با تنظیمات و میانبرهای از پیش آماده
+
+برای دریافت بسته‌ای که تنظیمات نمونه، میانبرها و آیکون‌های پیکربندی‌شده را نیز در خود دارد، این فایل را دانلود کنید:
+
+**`LAUNCHER59-v2.1.0-Preconfigured-Windows-x64.zip`**
+
+[دانلود بسته کامل LAUNCHER59-v2.1.0-Preconfigured-Windows-x64.zip](https://github.com/forog1980-star/Lanch59/releases/download/v2.1.0/LAUNCHER59-v2.1.0-Preconfigured-Windows-x64.zip)
+
+پس از استخراج ZIP:
+1. فایل داخل بسته با مسیر دقیق `01-Installer\Launcher59-Setup-2.1.0-x64.exe` را نصب کنید.
+2. پیش از اولین اجرای لانچر، از ریشه پوشه استخراج‌شده فایل `Import-Launcher59-Configuration.ps1` را اجرا کنید. هنگام واردکردن تنظیمات، لانچر باید کاملاً بسته باشد.
+3. پس از پیام موفقیت واردکردن تنظیمات، برنامه را اجرا کنید.
+
+**توجه:** فایل Setup داخل ZIP با فایل مستقل Release نام یکسان دارد، اما باینری متفاوتی است. برای واردکردن تنظیمات این بسته، فقط از فایل `01-Installer\Launcher59-Setup-2.1.0-x64.exe` داخل همان ZIP استفاده کنید؛ فایل مستقل Release را جایگزین آن نکنید. مسیر برنامه‌ها در میانبرهای آماده ممکن است در رایانه مقصد نیاز به اصلاح داشته باشد.
+
+SHA256 بسته ZIP: `f5b8abb2764c0afec07076984d7b1f4fec5b6b77fbeccd5ddc7be8430131eb95`
+
+[فایل کنترل صحت بسته ZIP](https://github.com/forog1980-star/Lanch59/releases/download/v2.1.0/LAUNCHER59-v2.1.0-Preconfigured-Windows-x64.zip.sha256.txt)
+
+### اجرای بدون نصب
+
+**`Launcher59-Portable-2.1.0-x64.exe`**
+
+[دانلود Launcher59-Portable-2.1.0-x64.exe](https://github.com/forog1980-star/Lanch59/releases/download/v2.1.0/Launcher59-Portable-2.1.0-x64.exe)
+
+این فایل نصب‌کننده نیست؛ آن را مستقیماً اجرا کنید تا نسخه قابل‌حمل بدون نصب اجرا شود.
+
+SHA256: `e7c8bddeb522edb8d7c9b9512364669161662806647af69f66aac04dd4d5e34b`
+
+### فایل‌هایی که نباید اجرا شوند
+
+- `SHA256SUMS.txt` و `LAUNCHER59-v2.1.0-Preconfigured-Windows-x64.zip.sha256.txt` فقط فایل متنی کنترل صحت هستند و نصب‌کننده نیستند.
+- لینک‌های `Source code (zip)` و `Source code (tar.gz)` کد منبع پروژه را دریافت می‌کنند و برای نصب کاربر عادی نیستند.
+
+[مشاهده راهنمای کامل نصب با نام دقیق فایل‌ها](docs/INSTALLATION-GUIDE-2.1.0.md)
+
+[مشاهده صفحه انتشار و همه فایل‌های v2.1.0 در GitHub](https://github.com/forog1980-star/Lanch59/releases/tag/v2.1.0)
 
 ---
 
@@ -67,22 +98,53 @@ A lightweight, floating, circular glassmorphism launcher for Windows 10 and Wind
 
 ## Download for Windows (v2.1.0)
 
-**Preconfigured package with a starter profile and saved shortcuts:**
-- [Download the complete LAUNCHER59-v2.1.0-Preconfigured-Windows-x64.zip package](https://github.com/forog1980-star/Lanch59/releases/download/v2.1.0/LAUNCHER59-v2.1.0-Preconfigured-Windows-x64.zip)
-- [Download this package's SHA256 checksum file](https://github.com/forog1980-star/Lanch59/releases/download/v2.1.0/LAUNCHER59-v2.1.0-Preconfigured-Windows-x64.zip.sha256.txt)
+### For a normal installation, download and run this exact file
 
-To use the preconfigured package, extract the ZIP, install the Setup file in `01-Installer`, and—before launching the app for the first time—run `Import-Launcher59-Configuration.ps1` from the package's root folder. Keep LAUNCHER 59 closed while importing. The saved shortcuts and application paths reflect the computer on which this package was configured; some paths may need to be updated on another PC.
+**`Launcher59-Setup-2.1.0-x64.exe`**
 
-**Standalone installer and portable version:**
-- **Setup installer:** [Download Launcher59-Setup-2.1.0-x64.exe](https://github.com/forog1980-star/Lanch59/releases/download/v2.1.0/Launcher59-Setup-2.1.0-x64.exe)
-- **Portable version:** [Download Launcher59-Portable-2.1.0-x64.exe](https://github.com/forog1980-star/Lanch59/releases/download/v2.1.0/Launcher59-Portable-2.1.0-x64.exe)
-- **File integrity checksums (SHA256):** [Download SHA256SUMS.txt](https://github.com/forog1980-star/Lanch59/releases/download/v2.1.0/SHA256SUMS.txt)
-- **All release assets:** [View the v2.1.0 GitHub release](https://github.com/forog1980-star/Lanch59/releases/tag/v2.1.0)
+[Download Launcher59-Setup-2.1.0-x64.exe](https://github.com/forog1980-star/Lanch59/releases/download/v2.1.0/Launcher59-Setup-2.1.0-x64.exe)
 
-### Setup vs. Portable
+This is the standalone installer recommended for ordinary users. Run the downloaded EXE and follow the setup wizard. It installs the application for the current Windows user and does not require Administrator privileges.
 
-- **Setup (`Launcher59-Setup-2.1.0-x64.exe`):** Installs the application for the current Windows user. Administrator privileges are not required. It creates Start Menu and Desktop shortcuts and registers an uninstaller in Windows.
-- **Portable (`Launcher59-Portable-2.1.0-x64.exe`):** Runs directly without installation and is suitable for quick testing or running from a USB drive or a chosen folder.
+SHA256: `9e025cc691069a257193d97e1dede3a78aae5087b95849ded0d834f191bf0e4a`
+
+### Installation with preconfigured settings and shortcuts
+
+To receive the starter settings, saved shortcuts, and configured icons, download:
+
+**`LAUNCHER59-v2.1.0-Preconfigured-Windows-x64.zip`**
+
+[Download LAUNCHER59-v2.1.0-Preconfigured-Windows-x64.zip](https://github.com/forog1980-star/Lanch59/releases/download/v2.1.0/LAUNCHER59-v2.1.0-Preconfigured-Windows-x64.zip)
+
+After extracting the ZIP:
+1. Install the bundled file at this exact relative path: `01-Installer\Launcher59-Setup-2.1.0-x64.exe`.
+2. Before the first launch, run `Import-Launcher59-Configuration.ps1` from the root of the extracted package. LAUNCHER 59 must be fully closed while settings are imported.
+3. Start the application after the import script reports success.
+
+**Important:** The Setup file inside the ZIP has the same filename as the standalone Release installer, but it is a different binary. To import this package's configuration, use only `01-Installer\Launcher59-Setup-2.1.0-x64.exe` from inside the same ZIP. Do not replace it with the standalone Release installer. Some saved application paths may need to be adjusted on the recipient's PC.
+
+ZIP SHA256: `f5b8abb2764c0afec07076984d7b1f4fec5b6b77fbeccd5ddc7be8430131eb95`
+
+[Preconfigured ZIP checksum file](https://github.com/forog1980-star/Lanch59/releases/download/v2.1.0/LAUNCHER59-v2.1.0-Preconfigured-Windows-x64.zip.sha256.txt)
+
+### Run without installing
+
+**`Launcher59-Portable-2.1.0-x64.exe`**
+
+[Download Launcher59-Portable-2.1.0-x64.exe](https://github.com/forog1980-star/Lanch59/releases/download/v2.1.0/Launcher59-Portable-2.1.0-x64.exe)
+
+This is not an installer. Run the EXE directly to use the portable version without installing the application.
+
+SHA256: `e7c8bddeb522edb8d7c9b9512364669161662806647af69f66aac04dd4d5e34b`
+
+### Files that should not be run
+
+- `SHA256SUMS.txt` and `LAUNCHER59-v2.1.0-Preconfigured-Windows-x64.zip.sha256.txt` are text files used only to verify file integrity. They are not installers.
+- `Source code (zip)` and `Source code (tar.gz)` contain project source code and are intended for developers, not ordinary installation.
+
+[Read the complete installation guide with exact filenames](docs/INSTALLATION-GUIDE-2.1.0.md)
+
+[View the v2.1.0 GitHub release and all assets](https://github.com/forog1980-star/Lanch59/releases/tag/v2.1.0)
 
 ---
 
