@@ -14,6 +14,13 @@
 
 ## دانلود نسخه ویندوز (v2.1.0)
 
+**بسته آماده نصب همراه با تنظیمات نمونه و میانبرهای از پیش پیکربندی‌شده:**
+- [دانلود بسته کامل LAUNCHER59-v2.1.0-Preconfigured-Windows-x64.zip](https://github.com/forog1980-star/Lanch59/releases/download/v2.1.0/LAUNCHER59-v2.1.0-Preconfigured-Windows-x64.zip)
+- [فایل کنترل صحت همین بسته (SHA256)](https://github.com/forog1980-star/Lanch59/releases/download/v2.1.0/LAUNCHER59-v2.1.0-Preconfigured-Windows-x64.zip.sha256.txt)
+
+برای استفاده از بسته آماده، ابتدا ZIP را استخراج کنید، فایل Setup داخل پوشه `01-Installer` را نصب کنید و پیش از اولین اجرای برنامه، اسکریپت `Import-Launcher59-Configuration.ps1` را از پوشه اصلی بسته اجرا کنید. لانچر باید هنگام واردکردن تنظیمات بسته باشد. میانبرها و مسیر برنامه‌ها مطابق رایانه‌ای هستند که بسته در آن پیکربندی شده‌اند؛ ممکن است در رایانه مقصد لازم باشد مسیر بعضی برنامه‌ها را اصلاح کنید.
+
+**نصب‌کننده مستقل و نسخه قابل‌حمل:**
 - **نسخه نصبی (Setup):** [دانلود Launcher59-Setup-2.1.0-x64.exe](https://github.com/forog1980-star/Lanch59/releases/download/v2.1.0/Launcher59-Setup-2.1.0-x64.exe)
 - **نسخه قابل‌حمل (Portable):** [دانلود Launcher59-Portable-2.1.0-x64.exe](https://github.com/forog1980-star/Lanch59/releases/download/v2.1.0/Launcher59-Portable-2.1.0-x64.exe)
 - **فایل بررسی اصالت (SHA256):** [دانلود SHA256SUMS.txt](https://github.com/forog1980-star/Lanch59/releases/download/v2.1.0/SHA256SUMS.txt)
@@ -60,6 +67,13 @@ A lightweight, floating, circular glassmorphism launcher for Windows 10 and Wind
 
 ## Download for Windows (v2.1.0)
 
+**Preconfigured package with a starter profile and saved shortcuts:**
+- [Download the complete LAUNCHER59-v2.1.0-Preconfigured-Windows-x64.zip package](https://github.com/forog1980-star/Lanch59/releases/download/v2.1.0/LAUNCHER59-v2.1.0-Preconfigured-Windows-x64.zip)
+- [Download this package's SHA256 checksum file](https://github.com/forog1980-star/Lanch59/releases/download/v2.1.0/LAUNCHER59-v2.1.0-Preconfigured-Windows-x64.zip.sha256.txt)
+
+To use the preconfigured package, extract the ZIP, install the Setup file in `01-Installer`, and—before launching the app for the first time—run `Import-Launcher59-Configuration.ps1` from the package's root folder. Keep LAUNCHER 59 closed while importing. The saved shortcuts and application paths reflect the computer on which this package was configured; some paths may need to be updated on another PC.
+
+**Standalone installer and portable version:**
 - **Setup installer:** [Download Launcher59-Setup-2.1.0-x64.exe](https://github.com/forog1980-star/Lanch59/releases/download/v2.1.0/Launcher59-Setup-2.1.0-x64.exe)
 - **Portable version:** [Download Launcher59-Portable-2.1.0-x64.exe](https://github.com/forog1980-star/Lanch59/releases/download/v2.1.0/Launcher59-Portable-2.1.0-x64.exe)
 - **File integrity checksums (SHA256):** [Download SHA256SUMS.txt](https://github.com/forog1980-star/Lanch59/releases/download/v2.1.0/SHA256SUMS.txt)
